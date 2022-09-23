@@ -16,6 +16,8 @@
         static Task ?basePlan;
 
         static ExpandModeType ExpandMode = ExpandModeType.AS_A_LIST;
+        const int ExpandDepth = 2;
+        const string ExpandSubtaskCount = "four";
 
         static async System.Threading.Tasks.Task Main(string[] args)
         {
@@ -46,7 +48,7 @@
 
         static async System.Threading.Tasks.Task ExpandPlan(Task planToExpand) {
 
-            if (planToExpand.planLevel > 2) {
+            if (planToExpand.planLevel > ExpandDepth) {
                 return;
             }
 
@@ -114,7 +116,7 @@
                 // var prompt =  $"Your job is to {plan.parent.description}. Your current task is to {plan.description}. Please specify a numbered list of the work that needs to be done.";
                 //var prompt = $"Please specify a numbered list of the work that needs to be done to {plan.description} when you {basePlan.description}";
                 //var prompt = $"Please specify one or two steps that needs to be done to {plan.description} when you {basePlan.description}";
-                var prompt = $"Your task is to {basePlan.description}. Repeat the list and add four subtasks to each of the items.\n\n";
+                var prompt = $"Your task is to {basePlan.description}. Repeat the list and add {ExpandSubtaskCount} subtasks to each of the items.\n\n";
                 prompt += Util.GetNumberedSteps(plan);
                 prompt += "END";
                 Console.WriteLine(prompt);
@@ -126,7 +128,7 @@
                 prompt += Util.GetNumberedSteps(plan);
                 prompt += "Please specify a bulleted list of the work that needs to be done for each step.";
                 */
-                var prompt = $"Below is part of a plan to {basePlan.description}. Repeat the list and add three subtasks to each of the items\n\n";
+                var prompt = $"Below is part of a plan to {basePlan.description}. Repeat the list and add {ExpandSubtaskCount} subtasks to each of the items\n\n";
                 prompt += Util.GetNumberedSteps(plan);
                 prompt += "END";
                 Console.WriteLine(prompt);

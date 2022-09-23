@@ -1,20 +1,20 @@
 {
   "format": 1,
   "restore": {
-    "C:\\codebox\\NaLaPla\\NaLaPla\\NaLaPla.csproj": {}
+    "C:\\Users\\brook\\source\\NaLaPla\\NaLaPla\\NaLaPla.csproj": {}
   },
   "projects": {
-    "C:\\codebox\\NaLaPla\\NaLaPla\\NaLaPla.csproj": {
+    "C:\\Users\\brook\\source\\NaLaPla\\NaLaPla\\NaLaPla.csproj": {
       "version": "1.0.0",
       "restore": {
-        "projectUniqueName": "C:\\codebox\\NaLaPla\\NaLaPla\\NaLaPla.csproj",
+        "projectUniqueName": "C:\\Users\\brook\\source\\NaLaPla\\NaLaPla\\NaLaPla.csproj",
         "projectName": "NaLaPla",
-        "projectPath": "C:\\codebox\\NaLaPla\\NaLaPla\\NaLaPla.csproj",
-        "packagesPath": "C:\\Users\\laliden\\.nuget\\packages\\",
-        "outputPath": "C:\\codebox\\NaLaPla\\NaLaPla\\obj\\",
+        "projectPath": "C:\\Users\\brook\\source\\NaLaPla\\NaLaPla\\NaLaPla.csproj",
+        "packagesPath": "C:\\Users\\brook\\.nuget\\packages\\",
+        "outputPath": "C:\\Users\\brook\\source\\NaLaPla\\NaLaPla\\obj\\",
         "projectStyle": "PackageReference",
         "configFilePaths": [
-          "C:\\Users\\laliden\\AppData\\Roaming\\NuGet\\NuGet.Config"
+          "C:\\Users\\brook\\AppData\\Roaming\\NuGet\\NuGet.Config"
         ],
         "originalTargetFrameworks": [
           "net6.0"
