@@ -1,6 +1,6 @@
 ﻿namespace NaLaPla
 {
-    //testing push
+    // testing
 
     using Microsoft.Extensions.Configuration;
     using Microsoft.Extensions.Configuration.EnvironmentVariables;
@@ -22,7 +22,7 @@
 
             //Test();
            // return;
-            Console.WriteLine("What do you want to plan?");
+            Console.WriteLine("What do you want instructions for?");
             String plan = Console.ReadLine();
 
             basePlan = new Plan() {
@@ -71,14 +71,38 @@
         }
 
         static string GeneratePrompt(Plan plan) {
+            var prompt = $""; // Might be useful to give background or context on intent of plan here
+            var excludeSiblings = true; // This isn't working very well right now.
+
             if (plan.parent != null) {
-                var prompt =  $"Your job is to {plan.parent.description}. Your current task is to {plan.description}. Please specify a numbered list of the work that needs to be done.";
-                Console.WriteLine(prompt);
-                return prompt;
+                prompt =  $"Your job is to {plan.parent.description}. Your current task is to {plan.description}. ";
+            } else {
+                prompt =  $"Your job is to {plan.description}.";
             }
-            var firstPrompt =  $"Your job is to {plan.description}. Please specify a numbered list of the work that needs to be done.";
-            Console.WriteLine(firstPrompt);
-            return firstPrompt;
+            var excludePrompt = $"";
+            if (excludeSiblings) {
+                excludePrompt = GenerateExcludes(plan);
+            }
+            var outputInstructions = $" Please specify a list of the work that needs to be done. Format as a numbered list.";
+            var fullPrompt = prompt + excludePrompt + outputInstructions;
+            Console.WriteLine(fullPrompt);
+            return fullPrompt;
+        }
+
+        static string GenerateExcludes(Plan plan) {
+            var excludePrompt = $"";
+            if (plan.parent != null) {
+                // Exclude steps that are siblings to this one
+                excludePrompt = $" These things have already been planned: ";
+                var excludes = new List<string>();
+                foreach (var sibling in plan.parent.planSteps) {
+                    if (sibling != plan) {
+                        excludes.Add(sibling.description);
+                    }
+                }
+                excludePrompt += string.Join(", ",excludes.ToArray()) + ".";
+            } 
+            return excludePrompt;
         }
     }
   }
