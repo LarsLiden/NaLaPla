@@ -5,11 +5,19 @@
     using Microsoft.Extensions.Configuration;
     using Microsoft.Extensions.Configuration.EnvironmentVariables;
 
-    class Program
+    enum ExpandModeType
     {
-        static Plan basePlan;
+        ONE_BY_ONE,
+        AS_A_LIST    
+    }
 
-        static async Task Main(string[] args)
+    class Program {
+    
+        static Task ?basePlan;
+
+        static ExpandModeType ExpandMode = ExpandModeType.AS_A_LIST;
+
+        static async System.Threading.Tasks.Task Main(string[] args)
         {
             var root = Directory.GetCurrentDirectory();
             var dotenv = Path.Combine(root, ".env");
@@ -20,63 +28,111 @@
                     .AddEnvironmentVariables()
                     .Build();
 
-            //Test();
-           // return;
+            //Util.TestParseMultiList();
+            //return;
+
             Console.WriteLine("What do you want to plan?");
             String plan = Console.ReadLine();
 
-            basePlan = new Plan() {
+            basePlan = new Task() {
                 description = plan,
                 planLevel = 0, 
-                planSteps = new List<Plan>()
+                subTasks = new List<Task>()
                 };
 
             await ExpandPlan(basePlan);
             Util.WritePlan(basePlan);
         }
 
-        static async Task ExpandPlan(Plan planToExpand) {
+        static async System.Threading.Tasks.Task ExpandPlan(Task planToExpand) {
 
-            if (planToExpand.planLevel > 1) {
+            if (planToExpand.planLevel > 2) {
                 return;
             }
-            var subTasks = await GetSubTasks(planToExpand);
-            foreach (var subTask in subTasks) {
-                var subPlan = new Plan() {
-                    description = subTask,
-                    planLevel = planToExpand.planLevel + 1,
-                    planSteps = new List<Plan>(),
-                    parent = planToExpand
-                };
-                planToExpand.planSteps.Add(subPlan);
-            }
 
-            foreach (var subPlan in planToExpand.planSteps) {
-                await ExpandPlan(subPlan);
+            var gptResponse = await GetGPTResponse(planToExpand);
+
+            // If one sub item at a time, create children and then expand with
+            if (ExpandMode == ExpandModeType.ONE_BY_ONE) {
+                
+                planToExpand.subTaskDescriptions = Util.ParseSubTaskList(gptResponse);
+
+                // Create sub-tasks
+                foreach (var subTask in planToExpand.subTaskDescriptions) {
+                    var subPlan = new Task() {
+                        description = subTask,
+                        planLevel = planToExpand.planLevel + 1,
+                        subTasks = new List<Task>(),
+                        parent = planToExpand
+                    };
+                    planToExpand.subTasks.Add(subPlan);
+                }
+
+                foreach (var subPlan in planToExpand.subTasks) {
+                    await ExpandPlan(subPlan);
+                }
             }
+            // Otherwise, expand all at once and then create children
+            else if (ExpandMode == ExpandModeType.AS_A_LIST) {
+
+                if (planToExpand.subTaskDescriptions.Count == 0) {
+                    planToExpand.subTaskDescriptions = Util.ParseSubTaskList(gptResponse);
+                    await ExpandPlan(planToExpand);
+                }
+                else {
+                    Util.UpdatePlan(planToExpand, gptResponse);
+
+                    // If I haven't reached the end of the plan
+                    if (planToExpand.subTasks.Count > 0 ) {
+                        foreach (var subPlan in planToExpand.subTasks) {
+                            if (subPlan.subTaskDescriptions.Any()) {
+                                await ExpandPlan(subPlan);
+                            }
+                        }
+                    }
+                }
+            }
+            
+
         }
 
-        static async Task<List<string>> GetSubTasks(Plan plan) {
+        static async Task<string> GetGPTResponse(Task plan) {
             var apiKey = System.Environment.GetEnvironmentVariable("OPENAI_API_KEY");
             var api = new OpenAI_API.OpenAIAPI(apiKey, "text-davinci-002");
             var prompt = GeneratePrompt(plan);
             OpenAI_API.CompletionResult result = await api.Completions.CreateCompletionAsync(
                 prompt,
                 max_tokens: 500,
-                temperature: 0.6);
+                temperature: 0.2);
 
             var rawPlan = result.ToString();
-            var subTasks = Util.ParseList(rawPlan);
-            return subTasks;
+            return rawPlan;
         }
 
-        static string GeneratePrompt(Plan plan) {
-            if (plan.parent != null) {
-                var prompt =  $"Your job is to {plan.parent.description}. Your current task is to {plan.description}. Please specify a numbered list of the work that needs to be done.";
+        static string GeneratePrompt(Task plan) {
+            if (plan.planLevel > 0  && ExpandMode == ExpandModeType.ONE_BY_ONE) {
+                // var prompt =  $"Your job is to {plan.parent.description}. Your current task is to {plan.description}. Please specify a numbered list of the work that needs to be done.";
+                //var prompt = $"Please specify a numbered list of the work that needs to be done to {plan.description} when you {basePlan.description}";
+                //var prompt = $"Please specify one or two steps that needs to be done to {plan.description} when you {basePlan.description}";
+                var prompt = $"Your task is to {basePlan.description}. Repeat the list and add four subtasks to each of the items.\n\n";
+                prompt += Util.GetNumberedSteps(plan);
+                prompt += "END";
                 Console.WriteLine(prompt);
                 return prompt;
             }
-            var firstPrompt =  $"Your job is to {plan.description}. Please specify a numbered list of the work that needs to be done.";
+            else if (plan.subTaskDescriptions.Count > 0 && ExpandMode == ExpandModeType.AS_A_LIST) {
+                /*
+                var prompt =  $"Your job is to {plan.description}. You have identified the following steps:\n";
+                prompt += Util.GetNumberedSteps(plan);
+                prompt += "Please specify a bulleted list of the work that needs to be done for each step.";
+                */
+                var prompt = $"Below is part of a plan to {basePlan.description}. Repeat the list and add three subtasks to each of the items\n\n";
+                prompt += Util.GetNumberedSteps(plan);
+                prompt += "END";
+                Console.WriteLine(prompt);
+                return prompt;
+            }
+            var firstPrompt =  $"Your job is to {plan.description}. Please specify a numbered list of brief tasks that needs to be done.";
             Console.WriteLine(firstPrompt);
             return firstPrompt;
         }
