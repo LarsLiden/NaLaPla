@@ -246,6 +246,7 @@
 
         static async Task<string> GetBestPlan(Plan plan, List<string> plans) {
 
+            if (plans.Count == 1) {
                 return plans.First();
             }
             
