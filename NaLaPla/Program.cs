@@ -127,13 +127,13 @@
        static async System.Threading.Tasks.Task ExpandPlan(Task planToExpand) {
 
             if (planToExpand.planLevel > ExpandDepth) {
-                planToExpand.state = "final";
+                planToExpand.state = TaskState.FINAL;
                 return;
             }
-            planToExpand.state = "calling GPT";
+            planToExpand.state = TaskState.GPT_PROMPT_SUBMITTED;
             Util.DisplayProgress(basePlan,GPTRequestsInFlight);
             var gptResponse = await GetGPTResponse(planToExpand, showPrompts);
-            planToExpand.state = "processing";
+            planToExpand.state = TaskState.PROCESSING;
             // If one sub item at a time, create children and then expand with
             if (ExpandMode == ExpandModeType.ONE_BY_ONE) {
                 
@@ -192,7 +192,7 @@
                     }
                 }
             }
-            planToExpand.state ="done";
+            planToExpand.state = TaskState.DONE;
             Util.DisplayProgress(basePlan,GPTRequestsInFlight);
         }
 
