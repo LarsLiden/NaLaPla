@@ -2,7 +2,7 @@ using System.ComponentModel;
 
 namespace NaLaPla
 {
-public enum TaskState {
+public enum PlanState {
     [Description("Created")]
     CREATED,
     [Description("Processing")]
@@ -17,13 +17,13 @@ public enum TaskState {
     DONE
 }
 
-public class Task {
-        public string? description;
+public class Plan {
+        public string description = "";
         public int planLevel;    
-        public List<string> subTaskDescriptions = new List<string>();    
-        public List<Task> subTasks = new List<Task>();
-        public Task? parent;
-        public TaskState state = TaskState.CREATED;
+        public List<string> subPlanDescriptions = new List<string>();    
+        public List<Plan> subPlans = new List<Plan>();
+        public Plan? parent;
+        public PlanState state = PlanState.CREATED;
         public string? prompt;
         public string? GPTresponse;
     }

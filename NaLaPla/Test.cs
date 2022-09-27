@@ -8,25 +8,25 @@ namespace NaLaPla
             var parse1 = "1. Choose a name for the company.\n\n2. Create a logo for the company.\n\n3. Develop a business plan.\n\n4. Raise capital.\n\n5. Find a manufacturing partner.\n\n6. Build a prototype.\n\n7. Test the prototype.\n\n8. Launch the production version of the car.\n\n9. Sell the car.\n\n";
             var parse2 = "\n\n1. Research the electric car market. This includes understanding the current landscape of electric car manufacturers, what consumers want in an electric car, and what features are most important to them.\n\n2. Develop a business plan for your electric car company. This should include your company’s mission and vision, as well as your target market and marketing strategy.\n\n3. Raise capital for your electric car company. This may involve seeking out investors or applying for loans.\n\n4. Hire a team of experts to help you build your electric car company. This may include engineers, designers, and marketing professionals.\n\n5. Develop a prototype of your electric car. This should be a working model that can be used to test and refine your design.\n\n6. Launch your electric car company. This includes marketing your car to consumers and setting up a sales and distribution network.";
             var parse3 = "\n\n1. Hire staff\n2. Set up the production line";
-            var list = Util.ParseSubTaskList(parse1);
-            list = Util.ParseSubTaskList(parse2);
-            list = Util.ParseSubTaskList(parse3);
+            var list = Util.ParseSubPlanList(parse1);
+            list = Util.ParseSubPlanList(parse2);
+            list = Util.ParseSubPlanList(parse3);
             return list;
         }
 
-        static Task MakeTestPlan(List<string> items) {
-            var basePlan = new Task() {
+        static Plan MakeTestPlan(List<string> items) {
+            var basePlan = new Plan() {
                 description = "build a log cabin",
                 planLevel = 0, 
-                subTasks = new List<Task>()
+                subPlans = new List<Plan>()
                 };
             foreach (var item in items) {
-                var subPlan = new Task() {
+                var subPlan = new Plan() {
                 description = item,
                 planLevel = 0, 
-                subTasks = new List<Task>()
+                subPlans = new List<Plan>()
                 };
-                basePlan.subTasks.Add(subPlan);
+                basePlan.subPlans.Add(subPlan);
             }
             return basePlan;
         }
