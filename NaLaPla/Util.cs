@@ -13,7 +13,7 @@ namespace NaLaPla
 
         const string SAVE_DIRECTORY = "output";
 
-        public static List<string> ParseSubTaskList(string itemString) {
+        public static List<string> ParseSubPlanList(string itemString) {
 
             // Assume list is like: "1. this 2. that 3. other"
             var list = itemString.Split('\r', '\n').ToList();
@@ -67,11 +67,11 @@ namespace NaLaPla
             return Regex.Replace(bulletText, @" [a-zA-Z]\.", "-");
         }
 
-        public static string GetNumberedSteps(Task plan) {
+        public static string GetNumberedSteps(Plan plan) {
 
             var steps = "";
-            for (int i = 0; i < plan.subTaskDescriptions.Count; i++) {
-                steps += $"{i+1}. {plan.subTaskDescriptions[i]}\n";
+            for (int i = 0; i < plan.subPlanDescriptions.Count; i++) {
+                steps += $"{i+1}. {plan.subPlanDescriptions[i]}\n";
             }
             return steps;
         }
@@ -82,25 +82,24 @@ namespace NaLaPla
             Console.ForegroundColor = ConsoleColor.White;
         }
 
-        public static string PlanToString(Task plan) {
-            string planName = (plan.description is null) ? "--unknown--" : plan.description;
-            string planText = $"- {planName}{Environment.NewLine}".PadLeft(planName.Length + (5*plan.planLevel));
+        public static string PlanToString(Plan plan) {
+            string planText = $"- {plan.description}{Environment.NewLine}".PadLeft(plan.description.Length + (5*plan.planLevel));
 
-            if (plan.subTasks.Any()) {
-                foreach (var subPlan in plan.subTasks) {
+            if (plan.subPlans.Any()) {
+                foreach (var subPlan in plan.subPlans) {
                     planText += PlanToString(subPlan);
                 }
             }
             else {
-                foreach (var subTaskDescription in plan.subTaskDescriptions) {
-                    string output = $"- {subTaskDescription}{Environment.NewLine}".PadLeft(subTaskDescription.Length + (5*(plan.planLevel+1)));
+                foreach (var subPlanDescription in plan.subPlanDescriptions) {
+                    string output = $"- {subPlanDescription}{Environment.NewLine}".PadLeft(subPlanDescription.Length + (5*(plan.planLevel+1)));
                     planText += $"{output}";
                 }
             }
             return planText;
         }
 
-        public static string PlanToJSON(Task plan) {
+        public static string PlanToJSON(Plan plan) {
             var json = Newtonsoft.Json.JsonConvert.SerializeObject(plan);
             return json;
         }        
@@ -112,17 +111,17 @@ namespace NaLaPla
             return planString;
         }
 
-        public static Task LoadPlan(string planName) {  
+        public static Plan LoadPlan(string planName) {  
             var fileName = $"{planName}.{PLAN_FILE_EXTENSION}";
             var planString = File.ReadAllText($"{SAVE_DIRECTORY}/{fileName}");
-            var plan = Newtonsoft.Json.JsonConvert.DeserializeObject<Task>(planString);
+            var plan = Newtonsoft.Json.JsonConvert.DeserializeObject<Plan>(planString);
             if (plan is null) {
-                throw new Exception("Loaded plan is null");
+                throw new Exception("Null plan loaded");
             }
             return plan;
         }
 
-        public static string GetPlanName(Task basePlan) {
+        public static string GetPlanName(Plan basePlan) {
             
             var planName = (basePlan.description is null) ? "--unknown--" : basePlan.description;
             foreach (var c in Path.GetInvalidFileNameChars()) {
@@ -131,7 +130,7 @@ namespace NaLaPla
             return planName;
         }
 
-        private static string GetSaveName(Task basePlan, string fileExtension) {
+        private static string GetSaveName(Plan basePlan, string fileExtension) {
             
             var planName = GetPlanName(basePlan);
             return GetSaveName(planName, fileExtension);
@@ -151,7 +150,7 @@ namespace NaLaPla
             return planName;
         }
 
-        public static void PrintPlanToConsole(Task plan, string configList="", string runData="") {
+        public static void PrintPlanToConsole(Plan plan, string configList="", string runData="") {
             var planName = GetPlanName(plan);
             var planString = PlanToString(plan);
             Util.WriteToConsole(planName, ConsoleColor.Green);
@@ -160,14 +159,14 @@ namespace NaLaPla
             Util.WriteToConsole(planString, ConsoleColor.White);
         }
 
-        public static void SavePlanAsText(Task plan, string configList, string runData) {
+        public static void SavePlanAsText(Plan plan, string configList, string runData) {
             var saveName = GetSaveName(plan, TEXT_FILE_EXTENSION);
             var planString = $"{configList}\n{runData}\n\n";
             planString += PlanToString(plan);
             SaveText(saveName, planString, TEXT_FILE_EXTENSION);
         }
 
-        public static void SavePlanAsJSON(Task plan) {
+        public static void SavePlanAsJSON(Plan plan) {
             var saveName = GetSaveName(plan, PLAN_FILE_EXTENSION);
             var planString = PlanToJSON(plan);
             SaveText(saveName, planString, PLAN_FILE_EXTENSION);
@@ -197,12 +196,12 @@ namespace NaLaPla
             }
         }
 
-        static List<Task> AllChildren(Task start)
+        static List<Plan> AllChildren(Plan start)
         {
-            return DepthFirstTreeTraversal(start, c=>c.subTasks).ToList();
+            return DepthFirstTreeTraversal(start, c=>c.subPlans).ToList();
         }
 
-        public static void DisplayProgress(Task? basePlan, int GPTRequestsInFlight, bool detailed = false) {
+        public static void DisplayProgress(Plan? basePlan, int GPTRequestsInFlight, bool detailed = false) {
             if (basePlan is null) return;
             WriteToConsole($"\n\nProgress ({GPTRequestsInFlight} GPT requests in flight):",ConsoleColor.Blue);
             var all = AllChildren(basePlan);
