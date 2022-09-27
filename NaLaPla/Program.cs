@@ -140,7 +140,7 @@
 
             string bestResponse;
             if (gptResponses.Count > 0) {
-                bestResponse = GetBestResponse(basePlan, gptResponses);
+                bestResponse = await GetBestPlan(basePlan, gptResponses);
             } else {
                 bestResponse = gptResponses.First();
             }
@@ -244,11 +244,27 @@
             }
         }
 
-        static string GetBestResponse(Plan? plan, List<string> gptResponses) {
-            if (plan is null) {
-                throw new Exception("Got null plan");
+        static async Task<string> GetBestPlan(Plan plan, List<string> plans) {
+
+            if (plans.Count == 1) {
+                return plans.First();
             }
-            return gptResponses.First();
+            
+            var prompt = $"Which plan is a better for a computer program to ${basePlan.description}\n?";
+
+            foreach (var data in plans.Select((plan, index) => (plan, index)))
+            {
+                prompt += $"START PLAN {data.index +1}\n{data.plan}\nEND PLAN {data.index +1}\n";
+            }
+
+            var result = await GetGPTResponses(prompt);
+
+            for (int i=0;i<plans.Count;i++) {
+                if (result[0].ToUpper().Contains($"PLAN {i+1}")) {
+                    return plans[i];
+                }
+            }
+            return plans.First();
         }
 
         static async Task<List<string>> ExpandPlanWithGPT(Plan plan) {
