@@ -76,19 +76,15 @@ namespace NaLaPla
             return steps;
         }
 
-        public static void WriteToConsole(string text, ConsoleColor color) {
-            if (color == null) {
-                Console.ForegroundColor = ConsoleColor.White;
-            }
-            else if (color is ConsoleColor) {
-                Console.ForegroundColor = color;
-            }
+        public static void WriteToConsole(string text, ConsoleColor color = ConsoleColor.White) {
+            Console.ForegroundColor = color;
             Console.WriteLine(text);
             Console.ForegroundColor = ConsoleColor.White;
         }
 
         public static string PlanToString(Task plan) {
-            string planText = $"- {plan.description}{Environment.NewLine}".PadLeft(plan.description.Length + (5*plan.planLevel));
+            string planName = (plan.description is null) ? "--unknown--" : plan.description;
+            string planText = $"- {planName}{Environment.NewLine}".PadLeft(planName.Length + (5*plan.planLevel));
 
             if (plan.subTasks.Any()) {
                 foreach (var subPlan in plan.subTasks) {
@@ -120,13 +116,16 @@ namespace NaLaPla
             var fileName = $"{planName}.{PLAN_FILE_EXTENSION}";
             var planString = File.ReadAllText($"{SAVE_DIRECTORY}/{fileName}");
             var plan = Newtonsoft.Json.JsonConvert.DeserializeObject<Task>(planString);
+            if (plan is null) {
+                throw new Exception("Loaded plan is null");
+            }
             return plan;
         }
 
         public static string GetPlanName(Task basePlan) {
             
-            var planName = basePlan.description;
-                foreach (var c in Path.GetInvalidFileNameChars()) {
+            var planName = (basePlan.description is null) ? "--unknown--" : basePlan.description;
+            foreach (var c in Path.GetInvalidFileNameChars()) {
                 planName.Replace(c.ToString(),"-");
             }
             return planName;
@@ -142,6 +141,9 @@ namespace NaLaPla
             // If writing to file add counter if file already exits
             var version = $"";
             var myFile = $"";
+            if (planName is null) {
+                planName = "--unknown--";
+            }
             while (File.Exists(myFile = $"{SAVE_DIRECTORY}/{planName}{version}.{fileExtension}")) {
                 version = (version == "") ? version = "2" : version = (Int32.Parse(version) + 1).ToString();
             }
@@ -200,7 +202,8 @@ namespace NaLaPla
             return DepthFirstTreeTraversal(start, c=>c.subTasks).ToList();
         }
 
-        public static void DisplayProgress(Task basePlan, int GPTRequestsInFlight, bool detailed = false) {
+        public static void DisplayProgress(Task? basePlan, int GPTRequestsInFlight, bool detailed = false) {
+            if (basePlan is null) return;
             WriteToConsole($"\n\nProgress ({GPTRequestsInFlight} GPT requests in flight):",ConsoleColor.Blue);
             var all = AllChildren(basePlan);
             foreach (var t in all) {

@@ -61,6 +61,7 @@
             Util.WriteToConsole($"\n\n\n{configList}", ConsoleColor.Green);
             Console.WriteLine("What do you want to plan?");
             var userInput = Console.ReadLine();
+            if (String.IsNullOrEmpty(userInput)) return;
             var runTimer = new System.Diagnostics.Stopwatch();
             runTimer.Start();
 
@@ -248,6 +249,9 @@
 
         static async Task<string> GetGPTResponse(string prompt) {
             var apiKey = System.Environment.GetEnvironmentVariable("OPENAI_API_KEY");
+            if (apiKey is null) {
+                throw new Exception("Please specify api key in .env");
+            }
 
             var api = new OpenAIService(new OpenAiOptions()
             {
@@ -266,24 +270,27 @@
 
             if (result.Successful)
             {
-
                 var rawPlan = result.Choices[0].Text;
                 GPTRequestsTotal++;
                 return rawPlan;
             }
             else {
                 // TODO: Handle failures in a smarter way
-                Console.WriteLine($"{result.Error.Code}: OpenAI = {result.Error.Message}");
+                if (result.Error is not null) {
+                    Console.WriteLine($"{result.Error.Code}: OpenAI = {result.Error.Message}");
+                }
                 throw new Exception("API Failure");
             }
         }
 
         static string GeneratePrompt(Task plan, bool showPrompt) {
+            var description = (basePlan is null || basePlan.description is null) ? "hire a new developer" : basePlan.description;
             if (plan.planLevel > 0  && ExpandMode == ExpandModeType.ONE_BY_ONE) {
                 // var prompt =  $"Your job is to {plan.parent.description}. Your current task is to {plan.description}. Please specify a numbered list of the work that needs to be done.";
                 //var prompt = $"Please specify a numbered list of the work that needs to be done to {plan.description} when you {basePlan.description}";
                 //var prompt = $"Please specify one or two steps that needs to be done to {plan.description} when you {basePlan.description}";
-                var prompt = $"Your task is to {basePlan.description}. Repeat the list and add {ExpandSubtaskCount} subtasks to each of the items.\n\n";
+                
+                var prompt = $"Your task is to {description}. Repeat the list and add {ExpandSubtaskCount} subtasks to each of the items.\n\n";
                 prompt += Util.GetNumberedSteps(plan);
                 prompt += "END LIST";
                 plan.prompt = prompt;
@@ -298,7 +305,7 @@
                 prompt += Util.GetNumberedSteps(plan);
                 prompt += "Please specify a bulleted list of the work that needs to be done for each step.";
                 */
-                var prompt = $"Below is part of a plan to {basePlan.description}. Repeat the list and add {ExpandSubtaskCount} subtasks to each of the items\n\n";
+                var prompt = $"Below is part of a plan to {description}. Repeat the list and add {ExpandSubtaskCount} subtasks to each of the items\n\n";
                 prompt += Util.GetNumberedSteps(plan);
                 prompt += "END LIST";
                 plan.prompt = prompt;
