@@ -23,8 +23,6 @@
         DEPTH,          // Overwrite depth
     }
 
-
-
     class Program {
     
         static Plan ?basePlan;
@@ -58,6 +56,7 @@
             Util.WriteToConsole($"\n\n\n{configuration.ToString()}", ConsoleColor.Green);
             Console.WriteLine("What do you want to plan?");
             var userInput = Console.ReadLine();
+            if (String.IsNullOrEmpty(userInput)) return;
             var runTimer = new System.Diagnostics.Stopwatch();
             runTimer.Start();
 
@@ -245,7 +244,10 @@
             }
         }
 
-        static string GetBestResponse(Plan plan, List<string> gptResponses) {
+        static string GetBestResponse(Plan? plan, List<string> gptResponses) {
+            if (plan is null) {
+                throw new Exception("Got null plan");
+            }
             return gptResponses.First();
         }
 
@@ -258,6 +260,9 @@
         // Return list of candidate plans
         static async Task<List<string>> GetGPTResponses(string prompt) {
             var apiKey = System.Environment.GetEnvironmentVariable("OPENAI_API_KEY");
+            if (apiKey is null) {
+                throw new Exception("Please specify api key in .env");
+            }
 
             var api = new OpenAIService(new OpenAiOptions()
             {
@@ -282,17 +287,20 @@
             }
             else {
                 // TODO: Handle failures in a smarter way
-                Console.WriteLine($"{result.Error.Code}: OpenAI = {result.Error.Message}");
+                if (result.Error is not null) {
+                    Console.WriteLine($"{result.Error.Code}: OpenAI = {result.Error.Message}");
+                }
                 throw new Exception("API Failure");
             }
         }
 
         static string GenerateExpandPrompt(Plan plan) {
+            var description = (basePlan is null || basePlan.description is null) ? "fire your lead developer" : basePlan.description;
             if (plan.planLevel > 0  && ExpandMode == ExpandModeType.ONE_BY_ONE) {
                 // var prompt =  $"Your job is to {plan.parent.description}. Your current task is to {plan.description}. Please specify a numbered list of the work that needs to be done.";
                 //var prompt = $"Please specify a numbered list of the work that needs to be done to {plan.description} when you {basePlan.description}";
                 //var prompt = $"Please specify one or two steps that needs to be done to {plan.description} when you {basePlan.description}";
-                var prompt = $"Your task is to {basePlan.description}. Repeat the list and add {ExpandSubPlanCount} subtasks to each of the items.\n\n";
+                var prompt = $"Your task is to {description}. Repeat the list and add {configuration.subtaskCount} subtasks to each of the items.\n\n";
                 prompt += Util.GetNumberedSteps(plan);
                 prompt += "END LIST";
                 plan.prompt = prompt;
@@ -307,7 +315,7 @@
                 prompt += Util.GetNumberedSteps(plan);
                 prompt += "Please specify a bulleted list of the work that needs to be done for each step.";
                 */
-                var prompt = $"Below is part of a plan to {basePlan.description}. Repeat the list and add {configuration.subtaskCount} subtasks to each of the items\n\n";
+                var prompt = $"Below is part of a plan to {description}. Repeat the list and add {configuration.subtaskCount} subtasks to each of the items\n\n";
                 prompt += Util.GetNumberedSteps(plan);
                 prompt += "END LIST";
                 plan.prompt = prompt;
