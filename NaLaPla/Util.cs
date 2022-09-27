@@ -239,10 +239,38 @@ namespace NaLaPla
             WriteToConsole($"\n\nProgress ({GPTRequestsInFlight} GPT requests in flight):",ConsoleColor.Blue);
             var all = AllChildren(basePlan);
             foreach (var t in all) {
-                var display = $"- {t.description} ({t.state}) ";
+                var display = $"- {t.description} ({GetDescription(t.state)}) ";
                 var status = display.PadLeft(display.Length + (5*t.planLevel));
                 WriteToConsole(status, ConsoleColor.White);
             }
         }
+
+        public static string GetDescription<T>(this T enumerationValue)
+            where T : struct
+        {
+            Type type = enumerationValue.GetType();
+            if (!type.IsEnum)
+            {
+                throw new ArgumentException("EnumerationValue must be of Enum type", "enumerationValue");
+            }
+
+            //Tries to find a DescriptionAttribute for a potential friendly name
+            //for the enum
+            var enumString = enumerationValue.ToString();
+            enumString = String.IsNullOrEmpty(enumString) ? "<unknown>" : enumString;
+            System.Reflection.MemberInfo[] memberInfo = type.GetMember(enumString);
+            if (memberInfo != null && memberInfo.Length > 0)
+            {
+                object[] attrs = memberInfo[0].GetCustomAttributes(typeof(System.ComponentModel.DescriptionAttribute), false);
+
+                if (attrs != null && attrs.Length > 0)
+                {
+                    //Pull out the description value
+                    return ((System.ComponentModel.DescriptionAttribute)attrs[0]).Description;
+                }
+            }
+            //If we have no description attribute, just return the ToString of the enum
+            return enumString;
+        }        
     }
 }
