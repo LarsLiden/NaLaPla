@@ -23,9 +23,10 @@
         static int GPTRequestsInFlight = 0;
 
         static ExpandModeType ExpandMode = ExpandModeType.AS_A_LIST;
+        
         static int ExpandDepth = 2;
 
-        static int MaxTokens = 500;
+        static OpenAIConfig OAIConfig = new OpenAIConfig();
 
         const string ExpandSubtaskCount = "four";
         const bool parallelGPTRequests = true;
@@ -86,7 +87,7 @@
                 var prompt = $"{postPrompt}{Environment.NewLine}START LIST{Environment.NewLine}{planString}{Environment.NewLine}END LIST";
 
                 // Expand Max Tokens to cover size of plan
-                MaxTokens = 2000;
+                OAIConfig.MaxTokens = 2000;
 
                 //var gptResponse = await GetGPTResponse(prompt);
 
@@ -206,12 +207,17 @@
         static async Task<string> GetGPTResponse(string prompt) {
             var apiKey = System.Environment.GetEnvironmentVariable("OPENAI_API_KEY");
             var api = new OpenAI_API.OpenAIAPI(apiKey, "text-davinci-002");
-            GPTRequestsInFlight++;
-            OpenAI_API.CompletionResult result = await api.Completions.CreateCompletionAsync(
+
+            var completionRequest = new OpenAI_API.CompletionRequest(
                 prompt,
-                max_tokens: MaxTokens,
-                temperature: 0.2);
+                max_tokens: OAIConfig.MaxTokens,
+                temperature: OAIConfig.Temperature,
+                numOutputs: OAIConfig.NumResponses);
+
+            GPTRequestsInFlight++;
+            OpenAI_API.CompletionResult result = await api.Completions.CreateCompletionAsync(completionRequest);
             GPTRequestsInFlight--;
+
             var rawPlan = result.ToString();
             GPTRequestsTotal++;
             return rawPlan;
