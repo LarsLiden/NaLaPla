@@ -1,6 +1,13 @@
 ﻿namespace NaLaPla
 {
     using Microsoft.Extensions.Configuration;
+    using OpenAI.GPT3;
+    using OpenAI.GPT3.Managers;
+    using OpenAI.GPT3.ObjectModels;
+    using OpenAI.GPT3.ObjectModels.ResponseModels;
+    using OpenAI.GPT3.ObjectModels.RequestModels;
+    using OpenAI.GPT3.Extensions;
+    using OpenAI.GPT3.Interfaces;
     using Microsoft.Extensions.Configuration.EnvironmentVariables;
 
     enum ExpandModeType
@@ -125,14 +132,14 @@
             return (PlanDescription: planDescription, Flags: flags);
         }
 
-       static async System.Threading.Tasks.Task ExpandPlan(Task planToExpand) {
+        static async System.Threading.Tasks.Task ExpandPlan(Task planToExpand) {
 
             if (planToExpand.planLevel > ExpandDepth) {
                 planToExpand.state = TaskState.FINAL;
                 return;
             }
             planToExpand.state = TaskState.GPT_PROMPT_SUBMITTED;
-            Util.DisplayProgress(basePlan,GPTRequestsInFlight);
+            Util.DisplayProgress(basePlan, GPTRequestsInFlight);
             var gptResponse = await GetGPTResponse(planToExpand, showPrompts);
             planToExpand.state = TaskState.PROCESSING;
             // If one sub item at a time, create children and then expand with
@@ -197,7 +204,7 @@
             Util.DisplayProgress(basePlan,GPTRequestsInFlight);
         }
 
-  public static void UpdatePlan(Task plan, string gptResponse, bool showResults) {
+        public static void UpdatePlan(Task plan, string gptResponse, bool showResults) {
 
             // Assume list is like: "1. task1 -subtask1 -subtask2 2. task2 -subtask 1..."
             var bulletedItem = Util.NumberToBullet(gptResponse);
@@ -241,21 +248,34 @@
 
         static async Task<string> GetGPTResponse(string prompt) {
             var apiKey = System.Environment.GetEnvironmentVariable("OPENAI_API_KEY");
-            var api = new OpenAI_API.OpenAIAPI(apiKey, "text-davinci-002");
 
-            var completionRequest = new OpenAI_API.CompletionRequest(
-                prompt,
-                max_tokens: OAIConfig.MaxTokens,
-                temperature: OAIConfig.Temperature,
-                numOutputs: OAIConfig.NumResponses);
+            var api = new OpenAIService(new OpenAiOptions()
+            {
+                ApiKey =  apiKey
+            });
+
+            var completionRequest = new CompletionCreateRequest();
+            completionRequest.Prompt = prompt;
+            completionRequest.MaxTokens = OAIConfig.MaxTokens;
+            completionRequest.Temperature = OAIConfig.Temperature;
+            completionRequest.N = OAIConfig.NumResponses;
 
             GPTRequestsInFlight++;
-            OpenAI_API.CompletionResult result = await api.Completions.CreateCompletionAsync(completionRequest);
+            CompletionCreateResponse result = await api.Completions.CreateCompletion(completionRequest, "text-davinci-002");
             GPTRequestsInFlight--;
 
-            var rawPlan = result.ToString();
-            GPTRequestsTotal++;
-            return rawPlan;
+            if (result.Successful)
+            {
+
+                var rawPlan = result.Choices[0].Text;
+                GPTRequestsTotal++;
+                return rawPlan;
+            }
+            else {
+                // TODO: Handle failures in a smarter way
+                Console.WriteLine($"{result.Error.Code}: OpenAI = {result.Error.Message}");
+                throw new Exception("API Failure");
+            }
         }
 
         static string GeneratePrompt(Task plan, bool showPrompt) {
