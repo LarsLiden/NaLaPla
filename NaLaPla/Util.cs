@@ -67,7 +67,7 @@ namespace NaLaPla
             return Regex.Replace(bulletText, @" [a-zA-Z]\.", "-");
         }
 
-        public static void UpdatePlan(Task plan, string gptResponse) {
+        public static void UpdatePlan(Task plan, string gptResponse, bool showResults) {
 
             // Assume list is like: "1. task1 -subtask1 -subtask2 2. task2 -subtask 1..."
             var bulletedItem = NumberToBullet(gptResponse);
@@ -97,7 +97,9 @@ namespace NaLaPla
                     };
                 plan.subTasks.Add(subPlan);
             }
-            PrintPlanToConsole(plan);
+            if (showResults) {
+                PrintPlanToConsole(plan);
+            }
         }
 
         public static string GetNumberedSteps(Task plan) {
@@ -140,7 +142,7 @@ namespace NaLaPla
         public static string PlanToJSON(Task plan) {
             var json = Newtonsoft.Json.JsonConvert.SerializeObject(plan);
             return json;
-        }
+        }        
 
         public static string LoadString(string planDescription) {
             var planName = GetSaveName(planDescription, TEXT_FILE_EXTENSION);    
@@ -182,16 +184,19 @@ namespace NaLaPla
             return planName;
         }
 
-        public static void PrintPlanToConsole(Task plan) {
+        public static void PrintPlanToConsole(Task plan, string configList="", string runData="") {
             var planName = GetPlanName(plan);
             var planString = PlanToString(plan);
             Util.WriteToConsole(planName, ConsoleColor.Green);
+            Util.WriteToConsole(configList, ConsoleColor.Green);
+            Util.WriteToConsole(runData, ConsoleColor.Green);
             Util.WriteToConsole(planString, ConsoleColor.White);
         }
 
-        public static void SavePlanAsText(Task plan) {
+        public static void SavePlanAsText(Task plan, string configList, string runData) {
             var saveName = GetSaveName(plan, TEXT_FILE_EXTENSION);
-            var planString = PlanToString(plan);
+            var planString = $"{configList}\n{runData}\n\n";
+            planString += PlanToString(plan);
             SaveText(saveName, planString, TEXT_FILE_EXTENSION);
         }
 
@@ -209,6 +214,35 @@ namespace NaLaPla
             var writer = new StreamWriter($"{SAVE_DIRECTORY}/{fileName}.{extension}");
             writer.Write(text);
             writer.Close();
+        }
+
+        static IEnumerable<T> DepthFirstTreeTraversal<T>(T root, Func<T, IEnumerable<T>> children)      
+        {
+            var stack = new Stack<T>();
+            stack.Push(root);
+            while(stack.Count != 0)
+            {
+                var current = stack.Pop();
+                // If you don't care about maintaining child order then remove the Reverse.
+                foreach(var child in children(current).Reverse())
+                    stack.Push(child);
+                yield return current;
+            }
+        }
+
+        static List<Task> AllChildren(Task start)
+        {
+            return DepthFirstTreeTraversal(start, c=>c.subTasks).ToList();
+        }
+
+        public static void DisplayProgress(Task basePlan, int GPTRequestsInFlight, bool detailed = false) {
+            WriteToConsole($"\n\nProgress ({GPTRequestsInFlight} GPT requests in flight):",ConsoleColor.Blue);
+            var all = AllChildren(basePlan);
+            foreach (var t in all) {
+                var display = $"- {t.description} ({t.state}) ";
+                var status = display.PadLeft(display.Length + (5*t.planLevel));
+                WriteToConsole(status, ConsoleColor.White);
+            }
         }
     }
 }
