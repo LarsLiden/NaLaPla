@@ -16,6 +16,8 @@
         DEPTH,          // Overwrite depth
     }
 
+
+
     class Program {
     
         static Task ?basePlan;
@@ -24,14 +26,10 @@
 
         static ExpandModeType ExpandMode = ExpandModeType.AS_A_LIST;
         
-        static int ExpandDepth = 2;
-
         static OpenAIConfig OAIConfig = new OpenAIConfig();
 
-        const string ExpandSubtaskCount = "four";
-        const bool parallelGPTRequests = true;
-        const bool showPrompts = false; // whether or not to print each prompt as it is submitted to GPT. Prompts always stored in plan.prompt.
-        const bool showResults = false; // print the parsed result of each request to the console
+        static RuntimeConfig configuration = new RuntimeConfig(); // For now just has hardcoded defaults
+
         static List<string> PostProcessingPrompts = new List<string>() {
             "Revise the task list below removing any steps that are equivalent\n"
         };
@@ -49,9 +47,8 @@
 
             //Util.TestParseMultiList();
             //return;
-            var configList = $"ExpandDepth = {ExpandDepth}, ExpandSubtaskCount = {ExpandSubtaskCount}, "
-                + $"parallelGPTRequests = {parallelGPTRequests}, showPrompts = {showPrompts}";
-            Util.WriteToConsole($"\n\n\n{configList}", ConsoleColor.Green);
+
+            Util.WriteToConsole($"\n\n\n{configuration.ToString()}", ConsoleColor.Green);
             Console.WriteLine("What do you want to plan?");
             var userInput = Console.ReadLine();
             var runTimer = new System.Diagnostics.Stopwatch();
@@ -75,8 +72,8 @@
                 var runData = $"Runtime: {runTimer.Elapsed.ToString(@"m\:ss")}, GPT requests: {GPTRequestsTotal}\n";
 
                 // Output plan
-                Util.PrintPlanToConsole(basePlan, configList, runData);
-                Util.SavePlanAsText(basePlan, configList, runData);
+                Util.PrintPlanToConsole(basePlan, configuration, runData);
+                Util.SavePlanAsText(basePlan, configuration, runData);
                 Util.SavePlanAsJSON(basePlan);
             }
 
@@ -115,7 +112,7 @@
                     if (flag == FlagType.DEPTH) {
                         int expandDepth;
                         if (int.TryParse(flagArg, out expandDepth)) {
-                            ExpandDepth = expandDepth;
+                            configuration.expandDepth = expandDepth;
                         }
                     }
                     flags.Add(flag);
@@ -127,13 +124,13 @@
 
        static async System.Threading.Tasks.Task ExpandPlan(Task planToExpand) {
 
-            if (planToExpand.planLevel > ExpandDepth) {
+            if (planToExpand.planLevel > configuration.expandDepth) {
                 planToExpand.state = TaskState.FINAL;
                 return;
             }
             planToExpand.state = TaskState.GPT_PROMPT_SUBMITTED;
             Util.DisplayProgress(basePlan,GPTRequestsInFlight);
-            var gptResponse = await GetGPTResponse(planToExpand, showPrompts);
+            var gptResponse = await GetGPTResponse(planToExpand);
             planToExpand.state = TaskState.PROCESSING;
             // If one sub item at a time, create children and then expand with
             if (ExpandMode == ExpandModeType.ONE_BY_ONE) {
@@ -150,7 +147,7 @@
                     };
                     planToExpand.subTasks.Add(subPlan);
                 }
-                if (parallelGPTRequests) {
+                if (configuration.parallelGPTRequests) {
                     var tasks = planToExpand.subTasks.Select(async subTask =>
                     {
                             await ExpandPlan(subTask);
@@ -171,11 +168,11 @@
                 }
                 else {
                     // Only request a display if we're not using parallel requests
-                    Util.UpdatePlan(planToExpand, gptResponse, !parallelGPTRequests);
+                    Util.UpdatePlan(planToExpand, gptResponse, configuration);
 
                     // If I haven't reached the end of the plan
                     if (planToExpand.subTasks.Count > 0 ) {
-                        if (parallelGPTRequests) {
+                        if (configuration.parallelGPTRequests) {
                             var tasks = planToExpand.subTasks.Select(async subTask =>
                             {
                                 if (subTask.subTaskDescriptions.Any()) {
@@ -197,8 +194,8 @@
             Util.DisplayProgress(basePlan,GPTRequestsInFlight);
         }
 
-        static async Task<string> GetGPTResponse(Task plan, bool showPrompt) {
-            var prompt = GeneratePrompt(plan,showPrompt);
+        static async Task<string> GetGPTResponse(Task plan) {
+            var prompt = GeneratePrompt(plan);
             var GPTresponse = await GetGPTResponse(prompt);
             plan.GPTresponse = GPTresponse;
             return GPTresponse;
@@ -223,16 +220,16 @@
             return rawPlan;
         }
 
-        static string GeneratePrompt(Task plan, bool showPrompt) {
+        static string GeneratePrompt(Task plan) {
             if (plan.planLevel > 0  && ExpandMode == ExpandModeType.ONE_BY_ONE) {
                 // var prompt =  $"Your job is to {plan.parent.description}. Your current task is to {plan.description}. Please specify a numbered list of the work that needs to be done.";
                 //var prompt = $"Please specify a numbered list of the work that needs to be done to {plan.description} when you {basePlan.description}";
                 //var prompt = $"Please specify one or two steps that needs to be done to {plan.description} when you {basePlan.description}";
-                var prompt = $"Your task is to {basePlan.description}. Repeat the list and add {ExpandSubtaskCount} subtasks to each of the items.\n\n";
+                var prompt = $"Your task is to {basePlan.description}. Repeat the list and add {configuration.subtaskCount} subtasks to each of the items.\n\n";
                 prompt += Util.GetNumberedSteps(plan);
                 prompt += "END LIST";
                 plan.prompt = prompt;
-                if (showPrompt) {
+                if (configuration.showPrompts) {
                     Util.WriteToConsole($"\n{prompt}\n", ConsoleColor.Cyan);
                 }
                 return prompt;
@@ -243,18 +240,18 @@
                 prompt += Util.GetNumberedSteps(plan);
                 prompt += "Please specify a bulleted list of the work that needs to be done for each step.";
                 */
-                var prompt = $"Below is part of a plan to {basePlan.description}. Repeat the list and add {ExpandSubtaskCount} subtasks to each of the items\n\n";
+                var prompt = $"Below is part of a plan to {basePlan.description}. Repeat the list and add {configuration.subtaskCount} subtasks to each of the items\n\n";
                 prompt += Util.GetNumberedSteps(plan);
                 prompt += "END LIST";
                 plan.prompt = prompt;
-                if (showPrompt) {
+                if (configuration.showPrompts) {
                     Util.WriteToConsole($"\n{prompt}\n", ConsoleColor.Cyan);
                 }
                 return prompt;
             }
             var firstPrompt =  $"Your job is to {plan.description}. Please specify a numbered list of brief tasks that needs to be done.";
             plan.prompt = firstPrompt;
-            if (showPrompt) {
+            if (configuration.showPrompts) {
                 Util.WriteToConsole($"\n{firstPrompt}\n", ConsoleColor.Cyan);
             }
             return firstPrompt;
