@@ -171,7 +171,7 @@
                 }
                 else {
                     // Only request a display if we're not using parallel requests
-                    Util.UpdatePlan(planToExpand, gptResponse, !parallelGPTRequests);
+                    UpdatePlan(planToExpand, gptResponse, !parallelGPTRequests);
 
                     // If I haven't reached the end of the plan
                     if (planToExpand.subTasks.Count > 0 ) {
@@ -195,6 +195,41 @@
             }
             planToExpand.state = TaskState.DONE;
             Util.DisplayProgress(basePlan,GPTRequestsInFlight);
+        }
+
+  public static void UpdatePlan(Task plan, string gptResponse, bool showResults) {
+
+            // Assume list is like: "1. task1 -subtask1 -subtask2 2. task2 -subtask 1..."
+            var bulletedItem = Util.NumberToBullet(gptResponse);
+            var list = Util.ParseListToLines(bulletedItem).ToList();
+
+            // When GPT can't find any more subtasks, it just add to the end of the list
+            if (list.Count() > plan.subTaskDescriptions.Count()) {
+                return;
+            }
+            plan.subTasks = new List<Task>();
+            foreach (var item in list) {
+                var steps = item.Split("-").ToList().Select(s => s.TrimStart().TrimEnd(' ', '\r', '\n')).ToList();
+
+                // Check if the plan has bottomed out
+                if (steps[0]=="") {
+                    plan.subTaskDescriptions = steps;
+                    return;
+                }
+                
+                var description = steps[0];
+                steps.RemoveAt(0);
+                var subPlan = new Task() {
+                        description = description,
+                        planLevel = plan.planLevel + 1, 
+                        subTaskDescriptions = steps,
+                        subTasks = new List<Task>()
+                    };
+                plan.subTasks.Add(subPlan);
+            }
+            if (showResults) {
+                Util.PrintPlanToConsole(plan);
+            }
         }
 
         static async Task<string> GetGPTResponse(Task plan, bool showPrompt) {
