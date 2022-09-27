@@ -36,7 +36,7 @@ namespace NaLaPla
             return list;
         }
 
-        private static IEnumerable<string> ParseListToLines(string value) {
+        public static IEnumerable<string> ParseListToLines(string value) {
             int start = 0;
             bool first = true;
 
@@ -60,46 +60,11 @@ namespace NaLaPla
         }
 
         // Replace numbered sub bullets (i.e. "2.1", "3.2.1", " 2.", " a." with "-" marks)
-        private static string NumberToBullet(string text) {
+        public static string NumberToBullet(string text) {
             var bulletText = Regex.Replace(text, @"\d\.\d.", "-");
             bulletText = Regex.Replace(bulletText, @"\d\.\d", "-");
             bulletText = Regex.Replace(bulletText, @" \d\.", "-");
             return Regex.Replace(bulletText, @" [a-zA-Z]\.", "-");
-        }
-
-        public static void UpdatePlan(Task plan, string gptResponse, RuntimeConfig configuration) {
-
-            // Assume list is like: "1. task1 -subtask1 -subtask2 2. task2 -subtask 1..."
-            var bulletedItem = NumberToBullet(gptResponse);
-            var list = ParseListToLines(bulletedItem).ToList();
-
-            // When GPT can't find any more subtasks, it just add to the end of the list
-            if (list.Count() > plan.subTaskDescriptions.Count()) {
-                return;
-            }
-            plan.subTasks = new List<Task>();
-            foreach (var item in list) {
-                var steps = item.Split("-").ToList().Select(s => s.TrimStart().TrimEnd(' ', '\r', '\n')).ToList();
-
-                // Check if the plan has bottomed out
-                if (steps[0]=="") {
-                    plan.subTaskDescriptions = steps;
-                    return;
-                }
-                
-                var description = steps[0];
-                steps.RemoveAt(0);
-                var subPlan = new Task() {
-                        description = description,
-                        planLevel = plan.planLevel + 1, 
-                        subTaskDescriptions = steps,
-                        subTasks = new List<Task>()
-                    };
-                plan.subTasks.Add(subPlan);
-            }
-            if (configuration.showResults) {
-                PrintPlanToConsole(plan, configuration);
-            }
         }
 
         public static string GetNumberedSteps(Task plan) {
