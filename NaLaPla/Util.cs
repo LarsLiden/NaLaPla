@@ -150,18 +150,18 @@ namespace NaLaPla
             return planName;
         }
 
-        public static void PrintPlanToConsole(Plan plan, string configList="", string runData="") {
+        public static void PrintPlanToConsole(Plan plan, RuntimeConfig configuration, string runData="") {
             var planName = GetPlanName(plan);
             var planString = PlanToString(plan);
             Util.WriteToConsole(planName, ConsoleColor.Green);
-            Util.WriteToConsole(configList, ConsoleColor.Green);
+            Util.WriteToConsole(configuration.ToString(), ConsoleColor.Green);
             Util.WriteToConsole(runData, ConsoleColor.Green);
             Util.WriteToConsole(planString, ConsoleColor.White);
         }
 
-        public static void SavePlanAsText(Plan plan, string configList, string runData) {
+        public static void SavePlanAsText(Plan plan, RuntimeConfig configuration, string runData) {
             var saveName = GetSaveName(plan, TEXT_FILE_EXTENSION);
-            var planString = $"{configList}\n{runData}\n\n";
+            var planString = $"{configuration.ToString()}\n{runData}\n\n";
             planString += PlanToString(plan);
             SaveText(saveName, planString, TEXT_FILE_EXTENSION);
         }

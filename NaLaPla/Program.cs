@@ -31,14 +31,10 @@
 
         static ExpandModeType ExpandMode = ExpandModeType.AS_A_LIST;
         
-        static int ExpandDepth = 2;
-
         static OpenAIConfig OAIConfig = new OpenAIConfig();
 
-        const string ExpandSubPlanCount = "four";
-        const bool parallelGPTRequests = true;
-        const bool showPrompts = false; // whether or not to print each prompt as it is submitted to GPT. Prompts always stored in plan.prompt.
-        const bool showResults = false; // print the parsed result of each request to the console
+        static RuntimeConfig configuration = new RuntimeConfig(); // For now just has hardcoded defaults
+
         static List<string> PostProcessingPrompts = new List<string>() {
             "Revise the task list below removing any steps that are equivalent\n"
         };
@@ -56,9 +52,8 @@
 
             //Util.TestParseMultiList();
             //return;
-            var configList = $"ExpandDepth = {ExpandDepth}, ExpandSubPlanCount = {ExpandSubPlanCount}, "
-                + $"parallelGPTRequests = {parallelGPTRequests}, showPrompts = {showPrompts}";
-            Util.WriteToConsole($"\n\n\n{configList}", ConsoleColor.Green);
+
+            Util.WriteToConsole($"\n\n\n{configuration.ToString()}", ConsoleColor.Green);
             Console.WriteLine("What do you want to plan?");
             var userInput = Console.ReadLine();
             if (String.IsNullOrEmpty(userInput)) return;
@@ -83,8 +78,8 @@
                 var runData = $"Runtime: {runTimer.Elapsed.ToString(@"m\:ss")}, GPT requests: {GPTRequestsTotal}\n";
 
                 // Output plan
-                Util.PrintPlanToConsole(basePlan, configList, runData);
-                Util.SavePlanAsText(basePlan, configList, runData);
+                Util.PrintPlanToConsole(basePlan, configuration, runData);
+                Util.SavePlanAsText(basePlan, configuration, runData);
                 Util.SavePlanAsJSON(basePlan);
             }
 
@@ -123,7 +118,7 @@
                     if (flag == FlagType.DEPTH) {
                         int expandDepth;
                         if (int.TryParse(flagArg, out expandDepth)) {
-                            ExpandDepth = expandDepth;
+                            configuration.expandDepth = expandDepth;
                         }
                     }
                     flags.Add(flag);
@@ -135,13 +130,13 @@
 
         static async System.Threading.Tasks.Task ExpandPlan(Plan planToExpand) {
 
-            if (planToExpand.planLevel > ExpandDepth) {
+            if (planToExpand.planLevel > configuration.expandDepth) {
                 planToExpand.state = PlanState.FINAL;
                 return;
             }
             planToExpand.state = PlanState.GPT_PROMPT_SUBMITTED;
             Util.DisplayProgress(basePlan, GPTRequestsInFlight);
-            var gptResponses = await ExpandPlanWithGPT(planToExpand, showPrompts);
+            var gptResponses = await ExpandPlanWithGPT(planToExpand);
 
             string bestResponse;
             if (gptResponses.Count > 0) {
@@ -167,7 +162,7 @@
                     };
                     planToExpand.subPlans.Add(plan);
                 }
-                if (parallelGPTRequests) {
+                if (configuration.parallelGPTRequests) {
                     var tasks = planToExpand.subPlans.Select(async subPlan =>
                     {
                             await ExpandPlan(subPlan);
@@ -188,11 +183,11 @@
                 }
                 else {
                     // Only request a display if we're not using parallel requests
-                    UpdatePlan(planToExpand, bestResponse, !parallelGPTRequests);
+                    UpdatePlan(planToExpand, bestResponse);
 
                     // If I haven't reached the end of the plan
                     if (planToExpand.subPlans.Count > 0 ) {
-                        if (parallelGPTRequests) {
+                        if (configuration.parallelGPTRequests) {
                             var plans = planToExpand.subPlans.Select(async subPlan =>
                             {
                                 if (subPlan.subPlanDescriptions.Any()) {
@@ -214,7 +209,7 @@
             Util.DisplayProgress(basePlan,GPTRequestsInFlight);
         }
 
-        public static void UpdatePlan(Plan plan, string gptResponse, bool showResults) {
+        public static void UpdatePlan(Plan plan, string gptResponse) {
 
             // Assume list is like: "1. task1 -subtask1 -subtask2 2. task2 -subtask 1..."
             var bulletedItem = Util.NumberToBullet(gptResponse);
@@ -244,8 +239,8 @@
                     };
                 plan.subPlans.Add(subPlan);
             }
-            if (showResults) {
-                Util.PrintPlanToConsole(plan);
+            if (configuration.showResults) {
+                Util.PrintPlanToConsole(plan,configuration);
             }
         }
 
@@ -256,8 +251,8 @@
             return gptResponses.First();
         }
 
-        static async Task<List<string>> ExpandPlanWithGPT(Plan plan, bool showPrompt) {
-            var prompt = GenerateExpandPrompt(plan,showPrompt);
+        static async Task<List<string>> ExpandPlanWithGPT(Plan plan) {
+            var prompt = GenerateExpandPrompt(plan);
             var gptresponses = await GetGPTResponses(prompt);
             return gptresponses;
         }
@@ -299,17 +294,17 @@
             }
         }
 
-        static string GenerateExpandPrompt(Plan plan, bool showPrompt) {
+        static string GenerateExpandPrompt(Plan plan) {
             var description = (basePlan is null || basePlan.description is null) ? "fire your lead developer" : basePlan.description;
             if (plan.planLevel > 0  && ExpandMode == ExpandModeType.ONE_BY_ONE) {
                 // var prompt =  $"Your job is to {plan.parent.description}. Your current task is to {plan.description}. Please specify a numbered list of the work that needs to be done.";
                 //var prompt = $"Please specify a numbered list of the work that needs to be done to {plan.description} when you {basePlan.description}";
                 //var prompt = $"Please specify one or two steps that needs to be done to {plan.description} when you {basePlan.description}";
-                var prompt = $"Your task is to {description}. Repeat the list and add {ExpandSubPlanCount} subtasks to each of the items.\n\n";
+                var prompt = $"Your task is to {description}. Repeat the list and add {configuration.subtaskCount} subtasks to each of the items.\n\n";
                 prompt += Util.GetNumberedSteps(plan);
                 prompt += "END LIST";
                 plan.prompt = prompt;
-                if (showPrompt) {
+                if (configuration.showPrompts) {
                     Util.WriteToConsole($"\n{prompt}\n", ConsoleColor.Cyan);
                 }
                 return prompt;
@@ -320,21 +315,22 @@
                 prompt += Util.GetNumberedSteps(plan);
                 prompt += "Please specify a bulleted list of the work that needs to be done for each step.";
                 */
-                var prompt = $"Below is part of a plan to {description}. Repeat the list and add {ExpandSubPlanCount} subtasks to each of the items\n\n";
+                var prompt = $"Below is part of a plan to {description}. Repeat the list and add {configuration.subtaskCount} subtasks to each of the items\n\n";
                 prompt += Util.GetNumberedSteps(plan);
                 prompt += "END LIST";
                 plan.prompt = prompt;
-                if (showPrompt) {
+                if (configuration.showPrompts) {
                     Util.WriteToConsole($"\n{prompt}\n", ConsoleColor.Cyan);
                 }
                 return prompt;
             }
             var firstPrompt =  $"Your job is to {plan.description}. Please specify a numbered list of brief tasks that needs to be done.";
             plan.prompt = firstPrompt;
-            if (showPrompt) {
+            if (configuration.showPrompts) {
                 Util.WriteToConsole($"\n{firstPrompt}\n", ConsoleColor.Cyan);
             }
             return firstPrompt;
         }
+   
     }
   }
