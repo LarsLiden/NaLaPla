@@ -1,4 +1,5 @@
-﻿namespace NaLaPla
+﻿using System.Diagnostics;
+namespace NaLaPla
 {
     using Microsoft.Extensions.Configuration;
     using OpenAI.GPT3;
@@ -9,6 +10,7 @@
     using OpenAI.GPT3.Extensions;
     using OpenAI.GPT3.Interfaces;
     using Microsoft.Extensions.Configuration.EnvironmentVariables;
+    using System.ComponentModel;
 
     enum ExpandModeType
     {
@@ -18,9 +20,17 @@
 
     enum FlagType
     {
+        [Description("-LOAD   \t<filename>")]
         LOAD,           // Load plan rather than generate
 
+        [Description("-DEPTH  \t<int>\t\t\tSub-plan depth")]
         DEPTH,          // Overwrite depth
+        [Description("-MAXGPT \t<int>\t\t\tMaximum concurrent requests to GPT")]
+        MAXGPT,         // Maximum concurrent GPT requests
+        [Description("-SUBTASKS\t<string>\t\t\tRequest <string> sub-plans")]
+        SUBTASKS,        // default subtasks to ask for
+        [Description("-TEMP   \t<float 0-1>\t\t\tDefault temperature")]
+        TEMP            // default temperature
     }
 
     class Program {
@@ -51,35 +61,51 @@
             //Util.TestParseMultiList();
             //return;
 
-            Util.WriteToConsole($"\n\n\n{configuration.ToString()}", ConsoleColor.Green);
-            Console.WriteLine("What do you want to plan?");
-            var userInput = Console.ReadLine();
-            if (String.IsNullOrEmpty(userInput)) return;
+            bool bail = false;
+            while (bail == false) {
+                foreach (FlagType flag in Enum.GetValues(typeof(FlagType))) {
+                    Console.WriteLine(Util.GetDescription(flag));
+                }
+                Util.WriteToConsole($"{configuration.ToString()}", ConsoleColor.Green);
+
+                Console.WriteLine("What do you want to plan?");
+                var userInput = Console.ReadLine();
+                if (String.IsNullOrEmpty(userInput)) {
+                    bail = true;
+                } else {
+                    (string planDescription, List<FlagType> flags) = ParseUserInput(userInput);
+
+                    foreach (FlagType flag in flags) {
+                        if (flag == FlagType.LOAD) {
+                            basePlan = Util.LoadPlan(planDescription); 
+                            bail = true;
+                        }
+                    }
+
+                    if (!String.IsNullOrEmpty(planDescription)) {
+                        basePlan = new Plan() {
+                        description = planDescription,
+                        planLevel = 0, 
+                        subPlans = new List<Plan>()
+                        };
+                        bail = true;
+                    }
+                }
+            }
+            if (basePlan is null) return; // no plan was loaded and text was blank
+
             var runTimer = new System.Diagnostics.Stopwatch();
             runTimer.Start();
 
-            (string planDescription, List<FlagType> flags) = ParseUserInput(userInput);
+            await ExpandPlan(basePlan);
+            runTimer.Stop();
 
-            if (flags.Contains(FlagType.LOAD)) {
-                basePlan = Util.LoadPlan(planDescription);
-            }
-            else {
-                basePlan = new Plan() {
-                    description = planDescription,
-                    planLevel = 0, 
-                    subPlans = new List<Plan>()
-                    };
+            var runData = $"Runtime: {runTimer.Elapsed.ToString(@"m\:ss")}, GPT requests: {GPTRequestsTotal}\n";
 
-                await ExpandPlan(basePlan);
-                runTimer.Stop();
-
-                var runData = $"Runtime: {runTimer.Elapsed.ToString(@"m\:ss")}, GPT requests: {GPTRequestsTotal}\n";
-
-                // Output plan
-                Util.PrintPlanToConsole(basePlan, configuration, runData);
-                Util.SavePlanAsText(basePlan, configuration, runData);
-                Util.SavePlanAsJSON(basePlan);
-            }
+            // Output plan
+            Util.PrintPlanToConsole(basePlan, configuration, runData);
+            Util.SavePlanAsText(basePlan, configuration, runData);
+            Util.SavePlanAsJSON(basePlan);
 
             // Do post processing steps
             var planString = Util.PlanToString(basePlan);
@@ -88,12 +114,12 @@
                 var prompt = $"{postPromptToUse}{Environment.NewLine}START LIST{Environment.NewLine}{planString}{Environment.NewLine}END LIST";
 
                 // Expand Max Tokens to cover size of plan
-                var postPrompt = new Prompt(prompt);
+                var postPrompt = new Prompt(prompt, configuration);
                 postPrompt.OAIConfig.MaxTokens = 2000;
 
                 //var gptResponse = await GetGPTResponse(postPrompt);
 
-                var outputName = $"{planDescription}-Post{i+1}";
+                var outputName = $"{basePlan.prompt.text}-Post{i+1}";
 
                 // IDEA: Can we convert post-processed plan back into plan object?
                 //Util.SaveText(outputName, gptResponse);
@@ -115,11 +141,29 @@
 
                     // Should overwrite depth amount?
                     if (flag == FlagType.DEPTH) {
-                        int expandDepth;
-                        if (int.TryParse(flagArg, out expandDepth)) {
-                            configuration.expandDepth = expandDepth;
+                        int value;
+                        if (int.TryParse(flagArg, out value)) {
+                            configuration.expandDepth = value;
                         }
                     }
+                    // Should overwrite concurrent request max?
+                    if (flag == FlagType.MAXGPT) {
+                        int value;
+                        if (int.TryParse(flagArg, out value)) {
+                            configuration.maxConcurrentGPTRequests = value;
+                        }
+                    }  
+                    // Should overwrite default temperature?
+                    if (flag == FlagType.TEMP) {
+                        float value;
+                        if (float.TryParse(flagArg, out value)) {
+                            configuration.temperature = value;
+                        }
+                    }                            
+                    // Should overwrite subtask count?
+                    if (flag == FlagType.SUBTASKS) {
+                        configuration.subtaskCount = flagArg;
+                    }               
                     flags.Add(flag);
                 }
             }
@@ -266,7 +310,8 @@
                 prompt += $"START PLAN {data.index +1}\n{data.plan}\nEND PLAN {data.index +1}\n";
             }
 
-            var bestPrompt = new Prompt(prompt);
+            var bestPrompt = new Prompt(prompt, configuration);
+
             var results = await GetGPTResponses(bestPrompt);
 
             // Use voting mechanism
@@ -291,7 +336,8 @@
 
         static async Task<List<string>> ExpandPlanWithGPT(Plan plan) {
             var promptText = GenerateExpandPrompt(plan);
-            plan.prompt = new Prompt(promptText);
+            plan.prompt = new Prompt(promptText, configuration);
+
             var gptresponses = await GetGPTResponses(plan.prompt);
             return gptresponses;
         }
@@ -345,7 +391,7 @@
                 var prompt = $"Your task is to {description}. Repeat the list and add {configuration.subtaskCount} subtasks to each of the items.\n\n";
                 prompt += Util.GetNumberedSteps(plan);
                 prompt += "END LIST";
-                plan.prompt = new Prompt(prompt);
+                plan.prompt = new Prompt(prompt,configuration);
                 if (configuration.showPrompts) {
                     Util.WriteToConsole($"\n{prompt}\n", ConsoleColor.Cyan);
                 }
@@ -360,14 +406,14 @@
                 var prompt = $"Below are instruction for a computer agent to {description}. Repeat the list and add {configuration.subtaskCount} subtasks to each of the items.\n\n";// in cases where the computer agent could use detail\n\n";
                 prompt += Util.GetNumberedSteps(plan);
                 prompt += "END LIST";
-                plan.prompt = new Prompt(prompt);
+                plan.prompt = new Prompt(prompt,configuration);
                 if (configuration.showPrompts) {
                     Util.WriteToConsole($"\n{prompt}\n", ConsoleColor.Cyan);
                 }
                 return prompt;
             }
             var firstPrompt =  $"Your job is to provide instructions for a computer agent to {plan.description}. Please specify a numbered list of {configuration.subtaskCount} brief tasks that needs to be done.";
-            plan.prompt = new Prompt(firstPrompt);
+            plan.prompt = new Prompt(firstPrompt, configuration);
             if (configuration.showPrompts) {
                 Util.WriteToConsole($"\n{firstPrompt}\n", ConsoleColor.Cyan);
             }
