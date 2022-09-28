@@ -1,4 +1,5 @@
-﻿namespace NaLaPla
+﻿using System.Diagnostics;
+namespace NaLaPla
 {
     using Microsoft.Extensions.Configuration;
     using OpenAI.GPT3;
@@ -9,6 +10,7 @@
     using OpenAI.GPT3.Extensions;
     using OpenAI.GPT3.Interfaces;
     using Microsoft.Extensions.Configuration.EnvironmentVariables;
+    using System.ComponentModel;
 
     enum ExpandModeType
     {
@@ -18,12 +20,16 @@
 
     enum FlagType
     {
+        [Description("-LOAD   \t<filename>")]
         LOAD,           // Load plan rather than generate
 
+        [Description("-DEPTH  \t<int>\t\t\tSub-plan depth")]
         DEPTH,          // Overwrite depth
-
+        [Description("-MAXGPT \t<int>\t\t\tMaximum concurrent requests to GPT")]
         MAXGPT,         // Maximum concurrent GPT requests
+        [Description("-SUBTASKS\t<string>\t\t\tRequest <string> sub-plans")]
         SUBTASKS,        // default subtasks to ask for
+        [Description("-TEMP   \t<float 0-1>\t\t\tDefault temperature")]
         TEMP            // default temperature
     }
 
@@ -57,7 +63,11 @@
 
             bool bail = false;
             while (bail == false) {
-                Util.WriteToConsole($"\n\n\n{configuration.ToString()}", ConsoleColor.Green);
+                foreach (FlagType flag in Enum.GetValues(typeof(FlagType))) {
+                    Console.WriteLine(Util.GetDescription(flag));
+                }
+                Util.WriteToConsole($"{configuration.ToString()}", ConsoleColor.Green);
+
                 Console.WriteLine("What do you want to plan?");
                 var userInput = Console.ReadLine();
                 if (String.IsNullOrEmpty(userInput)) {
