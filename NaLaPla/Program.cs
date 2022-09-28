@@ -21,6 +21,8 @@
         LOAD,           // Load plan rather than generate
 
         DEPTH,          // Overwrite depth
+
+        MAXGPT,         // Maximum concurrent GPT requests
     }
 
     class Program {
@@ -51,35 +53,47 @@
             //Util.TestParseMultiList();
             //return;
 
-            Util.WriteToConsole($"\n\n\n{configuration.ToString()}", ConsoleColor.Green);
-            Console.WriteLine("What do you want to plan?");
-            var userInput = Console.ReadLine();
-            if (String.IsNullOrEmpty(userInput)) return;
+            bool bail = false;
+            while (bail == false) {
+                Util.WriteToConsole($"\n\n\n{configuration.ToString()}", ConsoleColor.Green);
+                Console.WriteLine("What do you want to plan?");
+                var userInput = Console.ReadLine();
+                if (String.IsNullOrEmpty(userInput)) {
+                    bail = true;
+                } else {
+                    (string planDescription, List<FlagType> flags) = ParseUserInput(userInput);
+
+                    foreach (FlagType flag in flags) {
+                        if (flag == FlagType.LOAD) {
+                            basePlan = Util.LoadPlan(planDescription); 
+                            bail = true;
+                        }
+                    }
+
+                    if (!String.IsNullOrEmpty(planDescription)) {
+                        basePlan = new Plan() {
+                        description = planDescription,
+                        planLevel = 0, 
+                        subPlans = new List<Plan>()
+                        };
+                        bail = true;
+                    }
+                }
+            }
+            if (basePlan is null) return; // no plan was loaded and text was blank
+
             var runTimer = new System.Diagnostics.Stopwatch();
             runTimer.Start();
 
-            (string planDescription, List<FlagType> flags) = ParseUserInput(userInput);
+            await ExpandPlan(basePlan);
+            runTimer.Stop();
 
-            if (flags.Contains(FlagType.LOAD)) {
-                basePlan = Util.LoadPlan(planDescription);
-            }
-            else {
-                basePlan = new Plan() {
-                    description = planDescription,
-                    planLevel = 0, 
-                    subPlans = new List<Plan>()
-                    };
+            var runData = $"Runtime: {runTimer.Elapsed.ToString(@"m\:ss")}, GPT requests: {GPTRequestsTotal}\n";
 
-                await ExpandPlan(basePlan);
-                runTimer.Stop();
-
-                var runData = $"Runtime: {runTimer.Elapsed.ToString(@"m\:ss")}, GPT requests: {GPTRequestsTotal}\n";
-
-                // Output plan
-                Util.PrintPlanToConsole(basePlan, configuration, runData);
-                Util.SavePlanAsText(basePlan, configuration, runData);
-                Util.SavePlanAsJSON(basePlan);
-            }
+            // Output plan
+            Util.PrintPlanToConsole(basePlan, configuration, runData);
+            Util.SavePlanAsText(basePlan, configuration, runData);
+            Util.SavePlanAsJSON(basePlan);
 
             // Do post processing steps
             var planString = Util.PlanToString(basePlan);
@@ -93,7 +107,7 @@
 
                 //var gptResponse = await GetGPTResponse(postPrompt);
 
-                var outputName = $"{planDescription}-Post{i+1}";
+                var outputName = $"{basePlan.prompt.text}-Post{i+1}";
 
                 // IDEA: Can we convert post-processed plan back into plan object?
                 //Util.SaveText(outputName, gptResponse);
@@ -115,11 +129,18 @@
 
                     // Should overwrite depth amount?
                     if (flag == FlagType.DEPTH) {
-                        int expandDepth;
-                        if (int.TryParse(flagArg, out expandDepth)) {
-                            configuration.expandDepth = expandDepth;
+                        int value;
+                        if (int.TryParse(flagArg, out value)) {
+                            configuration.expandDepth = value;
                         }
                     }
+                    // Should overwrite depth amount?
+                    if (flag == FlagType.MAXGPT) {
+                        int value;
+                        if (int.TryParse(flagArg, out value)) {
+                            configuration.maxConcurrentGPTRequests = value;
+                        }
+                    }                    
                     flags.Add(flag);
                 }
             }
