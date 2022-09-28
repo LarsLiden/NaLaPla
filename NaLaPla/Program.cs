@@ -27,13 +27,11 @@
     
         static Plan ?basePlan;
         static int GPTRequestsTotal = 0;
-        static int GPTRequestsInFlight = 0;
 
         static ExpandModeType ExpandMode = ExpandModeType.AS_A_LIST;
-        
-        static OpenAIConfig OAIConfig = new OpenAIConfig();
 
         static RuntimeConfig configuration = new RuntimeConfig(); // For now just has hardcoded defaults
+        static SemaphoreSlim GPTSemaphore = new SemaphoreSlim(configuration.maxConcurrentGPTRequests,configuration.maxConcurrentGPTRequests);
 
         static List<string> PostProcessingPrompts = new List<string>() {
             "Revise the task list below removing any steps that are equivalent\n"
@@ -86,13 +84,14 @@
             // Do post processing steps
             var planString = Util.PlanToString(basePlan);
             for (int i=0;i<PostProcessingPrompts.Count;i++) {
-                var postPrompt = PostProcessingPrompts[i];
-                var prompt = $"{postPrompt}{Environment.NewLine}START LIST{Environment.NewLine}{planString}{Environment.NewLine}END LIST";
+                var postPromptToUse = PostProcessingPrompts[i];
+                var prompt = $"{postPromptToUse}{Environment.NewLine}START LIST{Environment.NewLine}{planString}{Environment.NewLine}END LIST";
 
                 // Expand Max Tokens to cover size of plan
-                OAIConfig.MaxTokens = 2000;
+                var postPrompt = new Prompt(prompt);
+                postPrompt.OAIConfig.MaxTokens = 2000;
 
-                //var gptResponse = await GetGPTResponse(prompt);
+                //var gptResponse = await GetGPTResponse(postPrompt);
 
                 var outputName = $"{planDescription}-Post{i+1}";
 
@@ -129,13 +128,15 @@
         }
 
         static async System.Threading.Tasks.Task ExpandPlan(Plan planToExpand) {
-
+            if (basePlan is null) {
+                throw new Exception("Got null basePlan");
+            }
             if (planToExpand.planLevel > configuration.expandDepth) {
                 planToExpand.state = PlanState.FINAL;
                 return;
             }
             planToExpand.state = PlanState.GPT_PROMPT_SUBMITTED;
-            Util.DisplayProgress(basePlan, GPTRequestsInFlight);
+            Util.DisplayProgress(basePlan, configuration, GPTSemaphore);
             var gptResponses = await ExpandPlanWithGPT(planToExpand);
 
             string bestResponse;
@@ -162,12 +163,12 @@
                     };
                     planToExpand.subPlans.Add(plan);
                 }
-                if (configuration.parallelGPTRequests) {
-                    var tasks = planToExpand.subPlans.Select(async subPlan =>
+                if (configuration.maxConcurrentGPTRequests > 1) {
+                    var plans = planToExpand.subPlans.Select(async subPlan =>
                     {
                             await ExpandPlan(subPlan);
                     });
-                    await System.Threading.Tasks.Task.WhenAll(tasks);
+                    await System.Threading.Tasks.Task.WhenAll(plans);
                 } else {
                     foreach (var subPlan in planToExpand.subPlans) {
                         await ExpandPlan(subPlan);
@@ -182,12 +183,11 @@
                     await ExpandPlan(planToExpand);
                 }
                 else {
-                    // Only request a display if we're not using parallel requests
                     UpdatePlan(planToExpand, bestResponse);
 
                     // If I haven't reached the end of the plan
                     if (planToExpand.subPlans.Count > 0 ) {
-                        if (configuration.parallelGPTRequests) {
+                        if (configuration.maxConcurrentGPTRequests > 1) {
                             var plans = planToExpand.subPlans.Select(async subPlan =>
                             {
                                 if (subPlan.subPlanDescriptions.Any()) {
@@ -206,7 +206,7 @@
                 }
             }
             planToExpand.state = PlanState.DONE;
-            Util.DisplayProgress(basePlan,GPTRequestsInFlight);
+            Util.DisplayProgress(basePlan, configuration, GPTSemaphore);
         }
 
         public static void UpdatePlan(Plan plan, string gptResponse) {
@@ -245,7 +245,9 @@
         }
 
         static async Task<string> GetBestPlan(Plan plan, List<string> plans) {
-
+            if (basePlan is null) {
+                throw new Exception("Got null basePlan");
+            }
             if (plans.Count == 1) {
                 return plans.First();
             }
@@ -264,7 +266,8 @@
                 prompt += $"START PLAN {data.index +1}\n{data.plan}\nEND PLAN {data.index +1}\n";
             }
 
-            var results = await GetGPTResponses(prompt);
+            var bestPrompt = new Prompt(prompt);
+            var results = await GetGPTResponses(bestPrompt);
 
             // Use voting mechanism
             int[] votes = new int[plans.Count];
@@ -287,13 +290,14 @@
         }
 
         static async Task<List<string>> ExpandPlanWithGPT(Plan plan) {
-            var prompt = GenerateExpandPrompt(plan);
-            var gptresponses = await GetGPTResponses(prompt);
+            var promptText = GenerateExpandPrompt(plan);
+            plan.prompt = new Prompt(promptText);
+            var gptresponses = await GetGPTResponses(plan.prompt);
             return gptresponses;
         }
 
         // Return list of candidate plans
-        static async Task<List<string>> GetGPTResponses(string prompt) {
+        static async Task<List<string>> GetGPTResponses(Prompt prompt) {
             var apiKey = System.Environment.GetEnvironmentVariable("OPENAI_API_KEY");
             if (apiKey is null) {
                 throw new Exception("Please specify api key in .env");
@@ -305,28 +309,31 @@
             });
 
             var completionRequest = new CompletionCreateRequest();
-            completionRequest.Prompt = prompt;
-            completionRequest.MaxTokens = OAIConfig.MaxTokens;
-            completionRequest.Temperature = OAIConfig.Temperature;
-            completionRequest.N = OAIConfig.NumResponses;
+            completionRequest.Prompt = prompt.text;
+            completionRequest.MaxTokens = prompt.OAIConfig.MaxTokens;
+            completionRequest.Temperature = prompt.OAIConfig.Temperature;
+            completionRequest.N = prompt.OAIConfig.NumResponses;
 
-            GPTRequestsInFlight++;
-            CompletionCreateResponse result = await api.Completions.CreateCompletion(completionRequest, "text-davinci-002");
-            GPTRequestsInFlight--;
-
-            if (result.Successful)
-            {
-                var rawPlans = result.Choices.Select(c => c.Text).ToList();
-                GPTRequestsTotal++;
-                return rawPlans;
-            }
-            else {
-                // TODO: Handle failures in a smarter way
-                if (result.Error is not null) {
-                    Console.WriteLine($"{result.Error.Code}: OpenAI = {result.Error.Message}");
+            try {
+                await GPTSemaphore.WaitAsync();
+                CompletionCreateResponse result = await api.Completions.CreateCompletion(completionRequest, "text-davinci-002");
+                if (result.Successful) {
+                    var rawPlans = result.Choices.Select(c => c.Text).ToList();
+                    GPTRequestsTotal++;
+                    return rawPlans;
+                } else {
+                    // TODO: Handle failures in a smarter way
+                    if (result.Error is not null) {
+                        Console.WriteLine($"{result.Error.Code}: OpenAI = {result.Error.Message}");
+                    }
                 }
                 throw new Exception("API Failure");
             }
+
+            finally {
+                GPTSemaphore.Release();
+            }
+
         }
 
         static string GenerateExpandPrompt(Plan plan) {
@@ -338,7 +345,7 @@
                 var prompt = $"Your task is to {description}. Repeat the list and add {configuration.subtaskCount} subtasks to each of the items.\n\n";
                 prompt += Util.GetNumberedSteps(plan);
                 prompt += "END LIST";
-                plan.prompt = prompt;
+                plan.prompt = new Prompt(prompt);
                 if (configuration.showPrompts) {
                     Util.WriteToConsole($"\n{prompt}\n", ConsoleColor.Cyan);
                 }
@@ -353,14 +360,14 @@
                 var prompt = $"Below are instruction for a computer agent to {description}. Repeat the list and add {configuration.subtaskCount} subtasks to each of the items.\n\n";// in cases where the computer agent could use detail\n\n";
                 prompt += Util.GetNumberedSteps(plan);
                 prompt += "END LIST";
-                plan.prompt = prompt;
+                plan.prompt = new Prompt(prompt);
                 if (configuration.showPrompts) {
                     Util.WriteToConsole($"\n{prompt}\n", ConsoleColor.Cyan);
                 }
                 return prompt;
             }
             var firstPrompt =  $"Your job is to provide instructions for a computer agent to {plan.description}. Please specify a numbered list of {configuration.subtaskCount} brief tasks that needs to be done.";
-            plan.prompt = firstPrompt;
+            plan.prompt = new Prompt(firstPrompt);
             if (configuration.showPrompts) {
                 Util.WriteToConsole($"\n{firstPrompt}\n", ConsoleColor.Cyan);
             }
