@@ -29,8 +29,6 @@
         static int GPTRequestsTotal = 0;
 
         static ExpandModeType ExpandMode = ExpandModeType.AS_A_LIST;
-        
-        static OpenAIConfig OAIConfig = new OpenAIConfig();
 
         static RuntimeConfig configuration = new RuntimeConfig(); // For now just has hardcoded defaults
         static SemaphoreSlim GPTSemaphore = new SemaphoreSlim(configuration.maxConcurrentGPTRequests,configuration.maxConcurrentGPTRequests);
@@ -86,13 +84,14 @@
             // Do post processing steps
             var planString = Util.PlanToString(basePlan);
             for (int i=0;i<PostProcessingPrompts.Count;i++) {
-                var postPrompt = PostProcessingPrompts[i];
-                var prompt = $"{postPrompt}{Environment.NewLine}START LIST{Environment.NewLine}{planString}{Environment.NewLine}END LIST";
+                var postPromptToUse = PostProcessingPrompts[i];
+                var prompt = $"{postPromptToUse}{Environment.NewLine}START LIST{Environment.NewLine}{planString}{Environment.NewLine}END LIST";
 
                 // Expand Max Tokens to cover size of plan
-                OAIConfig.MaxTokens = 2000;
+                var postPrompt = new Prompt(prompt);
+                postPrompt.OAIConfig.MaxTokens = 2000;
 
-                //var gptResponse = await GetGPTResponse(prompt);
+                //var gptResponse = await GetGPTResponse(postPrompt);
 
                 var outputName = $"{planDescription}-Post{i+1}";
 
@@ -164,7 +163,7 @@
                     };
                     planToExpand.subPlans.Add(plan);
                 }
-                if (configuration.parallelGPTRequests) {
+                if (configuration.maxConcurrentGPTRequests > 1) {
                     var plans = planToExpand.subPlans.Select(async subPlan =>
                     {
                             await ExpandPlan(subPlan);
@@ -188,7 +187,7 @@
 
                     // If I haven't reached the end of the plan
                     if (planToExpand.subPlans.Count > 0 ) {
-                        if (configuration.parallelGPTRequests) {
+                        if (configuration.maxConcurrentGPTRequests > 1) {
                             var plans = planToExpand.subPlans.Select(async subPlan =>
                             {
                                 if (subPlan.subPlanDescriptions.Any()) {
