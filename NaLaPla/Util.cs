@@ -201,9 +201,9 @@ namespace NaLaPla
             return DepthFirstTreeTraversal(start, c=>c.subPlans).ToList();
         }
 
-        public static void DisplayProgress(Plan? basePlan, int GPTRequestsInFlight, bool detailed = false) {
+        public static void DisplayProgress(Plan? basePlan, RuntimeConfig configuration, SemaphoreSlim GPTSemaphore, bool detailed = false) {
             if (basePlan is null) return;
-            WriteToConsole($"\n\nProgress ({GPTRequestsInFlight} GPT requests in flight):",ConsoleColor.Blue);
+            WriteToConsole($"\n\nProgress ({configuration.maxConcurrentGPTRequests - GPTSemaphore.CurrentCount} GPT requests in flight):",ConsoleColor.Blue);
             var all = AllChildren(basePlan);
             foreach (var t in all) {
                 var display = $"- {t.description} ({GetDescription(t.state)}) ";

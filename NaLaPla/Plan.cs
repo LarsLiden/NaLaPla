@@ -24,7 +24,7 @@ public class Plan {
         public List<Plan> subPlans = new List<Plan>();
         public Plan? parent;
         public PlanState state = PlanState.CREATED;
-        public string? prompt;
+        public Prompt? prompt;
         public string? GPTresponse;
     }
 }
