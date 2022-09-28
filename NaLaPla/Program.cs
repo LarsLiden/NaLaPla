@@ -250,6 +250,13 @@
                 return plans.First();
             }
             
+            // If plans are all the same don't need to run query
+            bool isAllEqual = plans.Distinct().Count() == 1;
+            if (isAllEqual) {
+                return plans.First();
+            }
+
+
             var prompt = $"Which plan is a better for a computer program to ${basePlan.description}\n?";
 
             foreach (var data in plans.Select((plan, index) => (plan, index)))
@@ -257,14 +264,26 @@
                 prompt += $"START PLAN {data.index +1}\n{data.plan}\nEND PLAN {data.index +1}\n";
             }
 
-            var result = await GetGPTResponses(prompt);
+            var results = await GetGPTResponses(prompt);
+
+            // Use voting mechanism
+            int[] votes = new int[plans.Count];
 
             for (int i=0;i<plans.Count;i++) {
-                if (result[0].ToUpper().Contains($"PLAN {i+1}")) {
-                    return plans[i];
+                foreach (var result in results) {
+                    if (result.ToUpper().Contains($"PLAN {i+1}")) {
+                        votes[i]++;
+                    }
                 }
             }
-            return plans.First();
+
+            // Get max index 
+            int maxValue = votes.Max();
+            int maxIndex = votes.ToList().IndexOf(maxValue);
+
+            Util.WriteToConsole($"Winner #{maxIndex+1}", ConsoleColor.Red);
+
+            return plans[maxIndex];
         }
 
         static async Task<List<string>> ExpandPlanWithGPT(Plan plan) {
@@ -331,7 +350,7 @@
                 prompt += Util.GetNumberedSteps(plan);
                 prompt += "Please specify a bulleted list of the work that needs to be done for each step.";
                 */
-                var prompt = $"Below is part of a plan to {description}. Repeat the list and add {configuration.subtaskCount} subtasks to each of the items\n\n";
+                var prompt = $"Below is part of a plan to {description}. Repeat the list and add {configuration.subtaskCount} subtasks to each of the items that need more detail\n\n";
                 prompt += Util.GetNumberedSteps(plan);
                 prompt += "END LIST";
                 plan.prompt = prompt;
