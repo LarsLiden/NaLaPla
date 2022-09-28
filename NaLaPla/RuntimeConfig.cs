@@ -6,10 +6,12 @@ namespace NaLaPla
         public bool showResults = false; // print the parsed result of each request to the console
 
         public int expandDepth = 2;
+        public float temperature = 0.2f;
         public string subtaskCount = "";  // Default to not specifying number of sub-tasks.  Creates less noise
 
         public override string ToString() {
-            var stringified = $"expandDepth = {expandDepth}, subtaskCount = {subtaskCount}, maxConcurrentGPTRequests = {maxConcurrentGPTRequests}, showPrompts = {showPrompts}, showResults = {showResults}";
+            var stringified = $"expandDepth = {expandDepth}, subtaskCount = {subtaskCount}, default temperature = {temperature}, maxConcurrentGPTRequests = {maxConcurrentGPTRequests}, "
+            + $" showPrompts = {showPrompts}, showResults = {showResults}";
             return stringified;
         }
     }

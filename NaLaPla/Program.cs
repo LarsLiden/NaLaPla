@@ -23,6 +23,8 @@
         DEPTH,          // Overwrite depth
 
         MAXGPT,         // Maximum concurrent GPT requests
+        SUBTASKS,        // default subtasks to ask for
+        TEMP            // default temperature
     }
 
     class Program {
@@ -102,7 +104,7 @@
                 var prompt = $"{postPromptToUse}{Environment.NewLine}START LIST{Environment.NewLine}{planString}{Environment.NewLine}END LIST";
 
                 // Expand Max Tokens to cover size of plan
-                var postPrompt = new Prompt(prompt);
+                var postPrompt = new Prompt(prompt, configuration);
                 postPrompt.OAIConfig.MaxTokens = 2000;
 
                 //var gptResponse = await GetGPTResponse(postPrompt);
@@ -134,13 +136,24 @@
                             configuration.expandDepth = value;
                         }
                     }
-                    // Should overwrite depth amount?
+                    // Should overwrite concurrent request max?
                     if (flag == FlagType.MAXGPT) {
                         int value;
                         if (int.TryParse(flagArg, out value)) {
                             configuration.maxConcurrentGPTRequests = value;
                         }
-                    }                    
+                    }  
+                    // Should overwrite default temperature?
+                    if (flag == FlagType.TEMP) {
+                        float value;
+                        if (float.TryParse(flagArg, out value)) {
+                            configuration.temperature = value;
+                        }
+                    }                            
+                    // Should overwrite subtask count?
+                    if (flag == FlagType.SUBTASKS) {
+                        configuration.subtaskCount = flagArg;
+                    }               
                     flags.Add(flag);
                 }
             }
@@ -287,7 +300,8 @@
                 prompt += $"START PLAN {data.index +1}\n{data.plan}\nEND PLAN {data.index +1}\n";
             }
 
-            var bestPrompt = new Prompt(prompt);
+            var bestPrompt = new Prompt(prompt, configuration);
+
             var results = await GetGPTResponses(bestPrompt);
 
             // Use voting mechanism
@@ -312,7 +326,8 @@
 
         static async Task<List<string>> ExpandPlanWithGPT(Plan plan) {
             var promptText = GenerateExpandPrompt(plan);
-            plan.prompt = new Prompt(promptText);
+            plan.prompt = new Prompt(promptText, configuration);
+
             var gptresponses = await GetGPTResponses(plan.prompt);
             return gptresponses;
         }
@@ -366,7 +381,7 @@
                 var prompt = $"Your task is to {description}. Repeat the list and add {configuration.subtaskCount} subtasks to each of the items.\n\n";
                 prompt += Util.GetNumberedSteps(plan);
                 prompt += "END LIST";
-                plan.prompt = new Prompt(prompt);
+                plan.prompt = new Prompt(prompt,configuration);
                 if (configuration.showPrompts) {
                     Util.WriteToConsole($"\n{prompt}\n", ConsoleColor.Cyan);
                 }
@@ -381,14 +396,14 @@
                 var prompt = $"Below are instruction for a computer agent to {description}. Repeat the list and add {configuration.subtaskCount} subtasks to each of the items.\n\n";// in cases where the computer agent could use detail\n\n";
                 prompt += Util.GetNumberedSteps(plan);
                 prompt += "END LIST";
-                plan.prompt = new Prompt(prompt);
+                plan.prompt = new Prompt(prompt,configuration);
                 if (configuration.showPrompts) {
                     Util.WriteToConsole($"\n{prompt}\n", ConsoleColor.Cyan);
                 }
                 return prompt;
             }
             var firstPrompt =  $"Your job is to provide instructions for a computer agent to {plan.description}. Please specify a numbered list of {configuration.subtaskCount} brief tasks that needs to be done.";
-            plan.prompt = new Prompt(firstPrompt);
+            plan.prompt = new Prompt(firstPrompt, configuration);
             if (configuration.showPrompts) {
                 Util.WriteToConsole($"\n{firstPrompt}\n", ConsoleColor.Cyan);
             }
