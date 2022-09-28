@@ -350,7 +350,7 @@
                 prompt += Util.GetNumberedSteps(plan);
                 prompt += "Please specify a bulleted list of the work that needs to be done for each step.";
                 */
-                var prompt = $"Below is part of a plan to {description}. Repeat the list and add {configuration.subtaskCount} subtasks to each of the items that need more detail\n\n";
+                var prompt = $"Below are instruction for a computer agent to {description}. Repeat the list and add {configuration.subtaskCount} subtasks to each of the items.\n\n";// in cases where the computer agent could use detail\n\n";
                 prompt += Util.GetNumberedSteps(plan);
                 prompt += "END LIST";
                 plan.prompt = prompt;
@@ -359,7 +359,7 @@
                 }
                 return prompt;
             }
-            var firstPrompt =  $"Your job is to {plan.description}. Please specify a numbered list of brief tasks that needs to be done.";
+            var firstPrompt =  $"Your job is to provide instructions for a computer agent to {plan.description}. Please specify a numbered list of {configuration.subtaskCount} brief tasks that needs to be done.";
             plan.prompt = firstPrompt;
             if (configuration.showPrompts) {
                 Util.WriteToConsole($"\n{firstPrompt}\n", ConsoleColor.Cyan);

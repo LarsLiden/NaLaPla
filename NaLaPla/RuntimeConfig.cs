@@ -6,7 +6,7 @@ namespace NaLaPla
         public bool showResults = false; // print the parsed result of each request to the console
 
         public int expandDepth = 2;
-        public string subtaskCount = "four";
+        public string subtaskCount = "";  // Default to not specifying number of sub-tasks.  Creates less noise
 
         public override string ToString() {
             var stringified = $"expandDepth = {expandDepth}, subtaskCount = {subtaskCount}, parallelGPTRequests = {parallelGPTRequests}, showPrompts = {showPrompts}, showResults = {showResults}";
