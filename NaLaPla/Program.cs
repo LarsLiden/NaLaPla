@@ -23,14 +23,16 @@ namespace NaLaPla
         [Description("-LOAD   \t<filename>")]
         LOAD,           // Load plan rather than generate
 
-        [Description("-DEPTH  \t<int>\t\t\tSub-plan depth")]
+        [Description("-DEPTH    \t<int>\t\t\tSub-plan depth")]
         DEPTH,          // Overwrite depth
-        [Description("-MAXGPT \t<int>\t\t\tMaximum concurrent requests to GPT")]
+        [Description("-MAXGPT   \t<int>\t\t\tMaximum concurrent requests to GPT")]
         MAXGPT,         // Maximum concurrent GPT requests
-        [Description("-SUBTASKS\t<string>\t\t\tRequest <string> sub-plans")]
+        [Description("-SUBTASKS \t<string>\t\t\tRequest <string> sub-plans")]
         SUBTASKS,        // default subtasks to ask for
-        [Description("-TEMP   \t<float 0-1>\t\t\tDefault temperature")]
-        TEMP            // default temperature
+        [Description("-TEMP     \t<float 0-1>\t\t\tDefault temperature")]
+        TEMP,            // default temperature]
+        [Description("-TEMPMULT\t<float>\t\t\tTemperature multipler per level")]
+        TEMPMULT,            // default temperature]        
     }
 
     class Program {
@@ -159,7 +161,14 @@ namespace NaLaPla
                         if (float.TryParse(flagArg, out value)) {
                             configuration.temperature = value;
                         }
-                    }                            
+                    }        
+                    // Should overwrite temperature multiplier?
+                    if (flag == FlagType.TEMPMULT) {
+                        float value;
+                        if (float.TryParse(flagArg, out value)) {
+                            configuration.tempMultPerLevel = value;
+                        }
+                    }                                          
                     // Should overwrite subtask count?
                     if (flag == FlagType.SUBTASKS) {
                         if (flagArg is not null) {
@@ -344,6 +353,10 @@ namespace NaLaPla
         static async Task<int> ExpandPlanWithGPT(Plan plan) {
             var promptText = GenerateExpandPrompt(plan);
             plan.prompt = new Prompt(promptText, configuration);
+
+            // Scale the temperature based on plan level
+            var levelMult = ((float)Math.Pow(configuration.tempMultPerLevel, plan.planLevel));
+            plan.prompt.OAIConfig.Temperature = Math.Clamp(plan.prompt.OAIConfig.Temperature * levelMult, 0, 1.0f);
 
             var gptResponseCount = await GetGPTResponses(plan.prompt);
             return gptResponseCount;
