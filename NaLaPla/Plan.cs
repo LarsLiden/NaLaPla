@@ -25,6 +25,5 @@ public class Plan {
         public Plan? parent;
         public PlanState state = PlanState.CREATED;
         public Prompt? prompt;
-        public string? GPTresponse;
     }
 }
