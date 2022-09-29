@@ -25,7 +25,7 @@ namespace NaLaPla
             }
             return Path.Combine(Environment.CurrentDirectory, INDEX_FOLDER);
         }
-        static public void CreateIndex() {
+        static public void CreateIndex(IDataProvider dataProvider) {
 
             using var dir = FSDirectory.Open(IndexDirectory());
             var analyzer = new StandardAnalyzer(AppLuceneVersion);
@@ -35,11 +35,11 @@ namespace NaLaPla
 
             try
             {
-                var doc = GetNextDocument();
+                var doc = dataProvider.GetNextDocument();
                 while (doc != null) 
                 {
                     writer.AddDocument(doc);
-                    doc = GetNextDocument();
+                    doc = dataProvider.GetNextDocument();
                 }
                 writer.Flush(triggerMerge: false, applyAllDeletes: false);
             }
@@ -55,36 +55,12 @@ namespace NaLaPla
             }
         }
 
-        static Document GetNextDocument() {
-            if (done) {
-                return null;
-            }
-            var source = new
-            {
-                Name = "Kermit the Frog",
-                FavoritePhrase = "The quick brown fox jumps over the lazy dog"
-            };
-            var doc = new Document
-            {
-                // StringField indexes but doesn't tokenize
-                new StringField("name", 
-                    source.Name, 
-                    Field.Store.YES),
-                new TextField("favoritePhrase", 
-                    source.FavoritePhrase, 
-                    Field.Store.YES)
-            };
-            done = true;
-            return doc;
-        }
-
         public static void TestQuery() {
 
             // Search with a phrase
             var phrase = new MultiPhraseQuery
             {
-                new Term("favoritePhrase", "brown"),
-                new Term("favoritePhrase", "fox")
+                new Term("body", "nether"),
             };
             Query(phrase);
         }
@@ -101,14 +77,12 @@ namespace NaLaPla
 
             // Display the output in a table
             Console.WriteLine($"{"Score",10}" +
-                $" {"Name",-15}" +
-                $" {"Favorite Phrase",-40}");
+                $" {"Topic",-15}");
             foreach (var hit in hits)
             {
                 var foundDoc = searcher.Doc(hit.Doc);
                 Console.WriteLine($"{hit.Score:f8}" +
-                    $" {foundDoc.Get("name"),-15}" +
-                    $" {foundDoc.Get("favoritePhrase"),-40}");
+                    $" {foundDoc.Get("topic"),-15}");
             }
         }
     }
