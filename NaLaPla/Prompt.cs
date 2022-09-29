@@ -3,6 +3,8 @@ namespace NaLaPla
 {
 public class Prompt {
         public string text = "";
+        
+        public List<string>? GPTresponses;
 
         public OpenAIConfig OAIConfig = new OpenAIConfig();
 

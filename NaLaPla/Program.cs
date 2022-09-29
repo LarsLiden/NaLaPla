@@ -163,7 +163,7 @@ namespace NaLaPla
                     // Should overwrite subtask count?
                     if (flag == FlagType.SUBTASKS) {
                         if (flagArg is not null) {
-                        configuration.subtaskCount = flagArg;
+                            configuration.subtaskCount = flagArg;
                         }
                     }               
                     flags.Add(flag);
@@ -192,7 +192,6 @@ namespace NaLaPla
                 bestResponse = gptResponses.First();
             }
 
-            planToExpand.GPTresponse = bestResponse;
             planToExpand.state = PlanState.PROCESSING;
             // If one sub item at a time, create children and then expand with
             if (ExpandMode == ExpandModeType.ONE_BY_ONE) {
@@ -367,6 +366,7 @@ namespace NaLaPla
                 CompletionCreateResponse result = await api.Completions.CreateCompletion(completionRequest, "text-davinci-002");
                 if (result.Successful) {
                     var rawPlans = result.Choices.Select(c => c.Text).ToList();
+                    prompt.GPTresponses = rawPlans;
                     GPTRequestsTotal++;
                     return rawPlans;
                 } else {
