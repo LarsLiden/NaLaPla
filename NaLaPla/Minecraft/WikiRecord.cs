@@ -39,7 +39,7 @@ namespace NaLaPla
         public string Title 
         {
             get {
-                return metadata.title.Split("/").Last().Replace("_", " ");
+                return metadata.title.Split("/").Last().Replace("_", " ").Replace("%27","'");
             }
         }
     }
