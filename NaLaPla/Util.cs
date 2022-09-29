@@ -159,11 +159,12 @@ namespace NaLaPla
             Util.WriteToConsole(planString, ConsoleColor.White);
         }
 
-        public static void SavePlanAsText(Plan plan, RuntimeConfig configuration, string runData) {
+        public static String SavePlanAsText(Plan plan, RuntimeConfig configuration, string runData) {
             var saveName = GetSaveName(plan, TEXT_FILE_EXTENSION);
             var planString = $"{configuration.ToString()}\n{runData}\n\n";
             planString += PlanToString(plan);
             SaveText(saveName, planString, TEXT_FILE_EXTENSION);
+            return saveName;
         }
 
         public static void SavePlanAsJSON(Plan plan) {
