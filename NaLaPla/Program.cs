@@ -119,7 +119,7 @@ namespace NaLaPla
 
                 //var gptResponse = await GetGPTResponse(postPrompt);
 
-                var outputName = $"{basePlan.prompt.text}-Post{i+1}";
+                var outputName = $"{basePlan.prompt?.text}-Post{i+1}";
 
                 // IDEA: Can we convert post-processed plan back into plan object?
                 //Util.SaveText(outputName, gptResponse);
@@ -162,13 +162,15 @@ namespace NaLaPla
                     }                            
                     // Should overwrite subtask count?
                     if (flag == FlagType.SUBTASKS) {
+                        if (flagArg is not null) {
                         configuration.subtaskCount = flagArg;
+                        }
                     }               
                     flags.Add(flag);
                 }
             }
 
-            return (PlanDescription: planDescription, Flags: flags);
+            return (planDescription, flags);
         }
 
         static async System.Threading.Tasks.Task ExpandPlan(Plan planToExpand) {
