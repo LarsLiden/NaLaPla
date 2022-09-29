@@ -312,7 +312,7 @@ namespace NaLaPla
             {
                 prompt += $"START PLAN {data.index +1}\n{data.response.ToString().Trim()}\nEND PLAN {data.index +1}\n";
             }
-            Console.WriteLine(prompt);
+            //Console.WriteLine(prompt);
 
             var bestPrompt = new Prompt(prompt, configuration);
 
