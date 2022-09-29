@@ -1,6 +1,7 @@
 namespace NaLaPla
 {
     using Lucene.Net.Analysis.Standard;
+    using Lucene.Net.QueryParsers.Classic;
     using Lucene.Net.Documents;
     using Lucene.Net.Index;
     using Lucene.Net.Search;
@@ -9,13 +10,9 @@ namespace NaLaPla
 
     public class IR {
 
-      //  static private IndexWriter _Writer = null;
         const string INDEX_FOLDER = "Index";
 
         const LuceneVersion AppLuceneVersion = LuceneVersion.LUCENE_48;
-
-        static Lucene.Net.Analysis.Standard.StandardAnalyzer analyzer = null;
-        static Lucene.Net.Index.IndexWriter writer = null;
 
         static bool done = false;
 
@@ -27,11 +24,13 @@ namespace NaLaPla
         }
         static public void CreateIndex(IDataProvider dataProvider) {
 
+            Util.WriteToConsole("Generating search index...", ConsoleColor.Green);
+
             using var dir = FSDirectory.Open(IndexDirectory());
             var analyzer = new StandardAnalyzer(AppLuceneVersion);
             var indexConfig = new IndexWriterConfig(AppLuceneVersion, analyzer);
             indexConfig.OpenMode = OpenMode.CREATE; 
-            writer = new IndexWriter(dir, indexConfig);
+            var writer = new IndexWriter(dir, indexConfig);
 
             try
             {
@@ -55,34 +54,33 @@ namespace NaLaPla
             }
         }
 
-        public static void TestQuery() {
+        public static List<string> GetRelatedDocuments(string text, int maxResults = 5) 
+        {
+            try {
+                using var dir = FSDirectory.Open(IndexDirectory());
+                using var analyzer = new StandardAnalyzer(AppLuceneVersion);
+                var indexConfig = new IndexWriterConfig(AppLuceneVersion, analyzer);
+                using var writer = new IndexWriter(dir, indexConfig);
 
-            // Search with a phrase
-            var phrase = new MultiPhraseQuery
-            {
-                new Term("body", "nether"),
-            };
-            Query(phrase);
-        }
+                using var reader = writer.GetReader(applyAllDeletes: true);
+                var searcher = new IndexSearcher(reader);
 
-        static void Query(Query query) {
-            using var dir = FSDirectory.Open(IndexDirectory());
-            var analyzer = new StandardAnalyzer(AppLuceneVersion);
-            var indexConfig = new IndexWriterConfig(AppLuceneVersion, analyzer);
-            writer = new IndexWriter(dir, indexConfig);
+                QueryParser parser = new QueryParser(AppLuceneVersion, "body", analyzer);
+                Query query = parser.Parse(text);
 
-            using var reader = writer.GetReader(applyAllDeletes: true);
-            var searcher = new IndexSearcher(reader);
-            var hits = searcher.Search(query, 20 /* top 20 */).ScoreDocs;
+                var hits = searcher.Search(query, maxResults).ScoreDocs;
 
-            // Display the output in a table
-            Console.WriteLine($"{"Score",10}" +
-                $" {"Topic",-15}");
-            foreach (var hit in hits)
-            {
-                var foundDoc = searcher.Doc(hit.Doc);
-                Console.WriteLine($"{hit.Score:f8}" +
-                    $" {foundDoc.Get("topic"),-15}");
+                // Display the output in a table
+                Util.WriteToConsole(text, ConsoleColor.Red);
+                Util.WriteToConsole($"{"Score",10}" + $" {"Topic",-15}", ConsoleColor.DarkRed);
+                foreach (var hit in hits)
+                {
+                    var foundDoc = searcher.Doc(hit.Doc);
+                    Console.WriteLine($"{hit.Score:f8}" + $" {foundDoc.Get("topic"),-15}");
+                }
+
+                var topDocuments = hits.Select(hit => searcher.Doc(hit.Doc).Get("body")).ToList();
+                return topDocuments;
             }
         }
     }
