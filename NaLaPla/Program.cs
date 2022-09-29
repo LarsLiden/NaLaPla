@@ -183,20 +183,23 @@ namespace NaLaPla
             }
             planToExpand.state = PlanState.GPT_PROMPT_SUBMITTED;
             Util.DisplayProgress(basePlan, configuration, GPTSemaphore);
-            var gptResponses = await ExpandPlanWithGPT(planToExpand);
+            var gptResponseCount = await ExpandPlanWithGPT(planToExpand);
 
-            string bestResponse;
-            if (gptResponses.Count > 0) {
-                bestResponse = await GetBestPlan(basePlan, gptResponses);
+            Response bestResponse;
+            if (planToExpand.prompt is null) {
+                throw new Exception("Got null prompt");
+            }
+            if (gptResponseCount > 0) {
+                bestResponse = await GetBestResponse(basePlan, planToExpand.prompt.responses);
             } else {
-                bestResponse = gptResponses.First();
+                bestResponse = planToExpand.prompt.responses.First();
             }
 
             planToExpand.state = PlanState.PROCESSING;
             // If one sub item at a time, create children and then expand with
             if (ExpandMode == ExpandModeType.ONE_BY_ONE) {
                 
-                planToExpand.subPlanDescriptions = Util.ParseSubPlanList(bestResponse);
+                planToExpand.subPlanDescriptions = Util.ParseSubPlanList(bestResponse.ToString());
 
                 // Create sub-plans
                 foreach (var subPlanDescription in planToExpand.subPlanDescriptions) {
@@ -224,11 +227,11 @@ namespace NaLaPla
             else if (ExpandMode == ExpandModeType.AS_A_LIST) {
 
                 if (planToExpand.subPlanDescriptions.Count == 0) {
-                    planToExpand.subPlanDescriptions = Util.ParseSubPlanList(bestResponse);
+                    planToExpand.subPlanDescriptions = Util.ParseSubPlanList(bestResponse.ToString());
                     await ExpandPlan(planToExpand);
                 }
                 else {
-                    UpdatePlan(planToExpand, bestResponse);
+                    UpdatePlan(planToExpand, bestResponse.ToString());
 
                     // If I haven't reached the end of the plan
                     if (planToExpand.subPlans.Count > 0 ) {
@@ -289,62 +292,65 @@ namespace NaLaPla
             }
         }
 
-        static async Task<string> GetBestPlan(Plan plan, List<string> plans) {
+        static async Task<Response> GetBestResponse(Plan plan, List<Response> responses) {
             if (basePlan is null) {
                 throw new Exception("Got null basePlan");
             }
-            if (plans.Count == 1) {
-                return plans.First();
+            if (responses.Count == 1) {
+                return responses.First();
             }
             
             // If plans are all the same don't need to run query
-            bool isAllEqual = plans.Distinct().Count() == 1;
+            bool isAllEqual = responses.Distinct().Count() == 1;
             if (isAllEqual) {
-                return plans.First();
+                return responses.First();
             }
 
+            var prompt = $"Which plan is a better for a computer program to ${basePlan.description}?/n";
 
-            var prompt = $"Which plan is a better for a computer program to ${basePlan.description}\n?";
-
-            foreach (var data in plans.Select((plan, index) => (plan, index)))
+            foreach (var data in responses.Select((response, index) => (response, index)))
             {
-                prompt += $"START PLAN {data.index +1}\n{data.plan}\nEND PLAN {data.index +1}\n";
+                prompt += $"START PLAN {data.index +1}\n{data.response.ToString().Trim()}\nEND PLAN {data.index +1}\n";
             }
+            //Console.WriteLine(prompt);
 
             var bestPrompt = new Prompt(prompt, configuration);
 
-            var results = await GetGPTResponses(bestPrompt);
+            // Change: the actual responses will be in bestPrompt.responses
+            var resultCount = await GetGPTResponses(bestPrompt);
 
             // Use voting mechanism
-            int[] votes = new int[plans.Count];
+            int[] votes = new int[responses.Count];
 
-            for (int i=0;i<plans.Count;i++) {
-                foreach (var result in results) {
-                    if (result.ToUpper().Contains($"PLAN {i+1}")) {
-                        votes[i]++;
+            for (int i=0;i<responses.Count;i++) {
+                foreach (var r in bestPrompt.responses) {
+                    if (r.ToString().ToUpper().Contains($"PLAN {i+1}")) {
+                        responses[i].score++;
                     }
                 }
             }
 
-            // Get max index 
-            int maxValue = votes.Max();
-            int maxIndex = votes.ToList().IndexOf(maxValue);
+            // Get response with highest score
+            var bestResponse = responses.MaxBy(x => x.score);
+            if (bestResponse is null) {
+                throw new Exception("Couldn't get highest score");
+            }
+            var index = responses.IndexOf(bestResponse);
+            // Util.WriteToConsole($"Winner #{index+1}, score = {bestResponse.score}, r = {bestResponse.ToString()}", ConsoleColor.Red);
 
-            Util.WriteToConsole($"Winner #{maxIndex+1}", ConsoleColor.Red);
-
-            return plans[maxIndex];
+            return bestResponse;
         }
 
-        static async Task<List<string>> ExpandPlanWithGPT(Plan plan) {
+        static async Task<int> ExpandPlanWithGPT(Plan plan) {
             var promptText = GenerateExpandPrompt(plan);
             plan.prompt = new Prompt(promptText, configuration);
 
-            var gptresponses = await GetGPTResponses(plan.prompt);
-            return gptresponses;
+            var gptResponseCount = await GetGPTResponses(plan.prompt);
+            return gptResponseCount;
         }
 
         // Return list of candidate plans
-        static async Task<List<string>> GetGPTResponses(Prompt prompt) {
+        static async Task<int> GetGPTResponses(Prompt prompt) {
             var apiKey = System.Environment.GetEnvironmentVariable("OPENAI_API_KEY");
             if (apiKey is null) {
                 throw new Exception("Please specify api key in .env");
@@ -366,9 +372,12 @@ namespace NaLaPla
                 CompletionCreateResponse result = await api.Completions.CreateCompletion(completionRequest, "text-davinci-002");
                 if (result.Successful) {
                     var rawPlans = result.Choices.Select(c => c.Text).ToList();
-                    prompt.GPTresponses = rawPlans;
+                    foreach (var plan in rawPlans) {
+                        Response r = new Response(ResponseType.GPT3, plan.Trim());
+                        prompt.responses.Add(r);
+                    }
                     GPTRequestsTotal++;
-                    return rawPlans;
+                    return rawPlans.Count;
                 } else {
                     // TODO: Handle failures in a smarter way
                     if (result.Error is not null) {
