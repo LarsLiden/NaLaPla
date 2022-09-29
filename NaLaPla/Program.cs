@@ -108,7 +108,7 @@ namespace NaLaPla
 
             // Output plan
             Util.PrintPlanToConsole(basePlan, configuration, runData);
-            Util.SavePlanAsText(basePlan, configuration, runData);
+            var textFileName = Util.SavePlanAsText(basePlan, configuration, runData);
             Util.SavePlanAsJSON(basePlan);
 
             // Do post processing steps
@@ -121,12 +121,15 @@ namespace NaLaPla
                 var postPrompt = new Prompt(prompt, configuration);
                 postPrompt.OAIConfig.MaxTokens = 2000;
 
-                //var gptResponse = await GetGPTResponse(postPrompt);
+                var gptResponse = await GetGPTResponses(postPrompt);
 
-                var outputName = $"{basePlan.prompt?.text}-Post{i+1}";
+                var newFilename = Path.GetFileName(textFileName) + $"-Post{i+1}";
+                var dir = Path.GetDirectoryName(textFileName);
+                var ext = Path.GetExtension(textFileName);
+                var saveFilename = Path.Combine(dir, newFilename + ext);
 
                 // IDEA: Can we convert post-processed plan back into plan object?
-                //Util.SaveText(outputName, gptResponse);
+                Util.SaveText(saveFilename, postPrompt.responses[i].ToString());
             }
             
         }
