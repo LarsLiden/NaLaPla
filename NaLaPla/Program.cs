@@ -58,6 +58,8 @@ namespace NaLaPla
                     .AddEnvironmentVariables()
                     .Build();
 
+            //IR.CreateIndex(new MineCraftDataProvider());
+            //IR.TestQuery();
             //Util.TestParseMultiList();
             //return;
 
