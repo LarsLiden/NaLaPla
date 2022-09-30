@@ -8,7 +8,7 @@ namespace NaLaPla
     class MineCraftDataProvider : IDataProvider
     {
     
-        const string MINECRAFT_DATA_FOLDER = "wiki_samples";
+        private string MinecraftDataFolder = "";
 
         const int MIN_REQUIRED_WORDS = 5;
 
@@ -21,10 +21,20 @@ namespace NaLaPla
         // Current loaded file
         private WikiRecord CurWikiRecord = null;
     
+
+        public MineCraftDataProvider(string minecraftDataFolder) {
+            this.MinecraftDataFolder = minecraftDataFolder;
+
+            var path = Path.Combine(Environment.CurrentDirectory, MinecraftDataFolder);
+            if(!System.IO.Directory.Exists(path)) {
+                throw new Exception($"Directory Not FoundL {path}");
+            }
+        }
+
         private Stack<string> DataFiles {
             get {
                 if (_DataFiles == null) {
-                    var path = Path.Combine(Environment.CurrentDirectory, MINECRAFT_DATA_FOLDER);
+                    var path = Path.Combine(Environment.CurrentDirectory, MinecraftDataFolder);
                     _DataFiles = new Stack<string>(System.IO.Directory.GetFiles(path, "data.json", SearchOption.AllDirectories));
                     Util.WriteToConsole($"{_DataFiles.Count()} Documents Found", ConsoleColor.Green);
                 }
