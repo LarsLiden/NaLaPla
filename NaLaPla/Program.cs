@@ -23,6 +23,9 @@ namespace NaLaPla
         [Description("-LOAD   \t<filename>")]
         LOAD,           // Load plan rather than generate
 
+        [Description("-INDEX   \t<index directory>")]
+        INDEX,          // Build search index
+
         [Description("-DEPTH    \t<int>\t\t\tSub-plan depth")]
         DEPTH,          // Overwrite depth
         [Description("-MAXGPT   \t<int>\t\t\tMaximum concurrent requests to GPT")]
@@ -36,7 +39,7 @@ namespace NaLaPla
     }
 
     class Program {
-        static bool newPlan = true;
+
         static Plan ?basePlan;
         static int GPTRequestsTotal = 0;
 
@@ -60,10 +63,6 @@ namespace NaLaPla
                     .AddEnvironmentVariables()
                     .Build();
 
-            IR.CreateIndex(new MineCraftDataProvider());
-            //Util.TestParseMultiList();
-            //return;
-
             bool bail = false;
             while (bail == false) {
                 foreach (FlagType flag in Enum.GetValues(typeof(FlagType))) {
@@ -78,10 +77,20 @@ namespace NaLaPla
                 } else {
                     (string planDescription, List<FlagType> flags) = ParseUserInput(userInput);
 
-                    if (!newPlan) {
+                    if (!configuration.shouldLoadPlan) {
                         Console.WriteLine($"Loading {planDescription}");
                         basePlan = Util.LoadPlan(planDescription); 
                         bail = true;
+                    }
+
+                    if (configuration.indexToBuild != "") {
+                        try {
+                            IR.CreateIndex(new MineCraftDataProvider(configuration.indexToBuild));
+                        }
+                        catch (Exception e) {
+                            Util.WriteToConsole("Failed to create Index", ConsoleColor.Red);
+                            Util.WriteToConsole(e.Message.ToString(), ConsoleColor.DarkRed);
+                        }
                     }
 
                     if (!String.IsNullOrEmpty(planDescription)) {
@@ -162,12 +171,17 @@ namespace NaLaPla
             pieces.RemoveAt(0);
 
             var flags = new List<FlagType>();
+
+            // Settings
             flags.AddRange(TryGetFlag(pieces, FlagType.DEPTH, ref configuration.expandDepth));
             flags.AddRange(TryGetFlag(pieces, FlagType.TEMP, ref configuration.temperature));
             flags.AddRange(TryGetFlag(pieces, FlagType.TEMPMULT, ref configuration.tempMultPerLevel));
             flags.AddRange(TryGetFlag(pieces, FlagType.MAXGPT, ref configuration.maxConcurrentGPTRequests));
             flags.AddRange(TryGetFlag(pieces, FlagType.SUBTASKS, ref configuration.subtaskCount));
-            flags.AddRange(TryGetFlag(pieces, FlagType.LOAD, ref newPlan));
+
+            // Actions
+            flags.AddRange(TryGetFlag(pieces, FlagType.LOAD, ref configuration.shouldLoadPlan));
+            flags.AddRange(TryGetFlag(pieces, FlagType.INDEX, ref configuration.indexToBuild));
             return (planDescription, flags);
         }
 

@@ -13,10 +13,14 @@ namespace NaLaPla
         public float tempMultPerLevel = 1.0f;
         public string subtaskCount = "";  // Default to not specifying number of sub-tasks.  Creates less noise
 
+        public bool shouldLoadPlan = true;
+
+        public string indexToBuild = "";
+
         public override string ToString() {
             var stringified = $"expandDepth = {expandDepth}, subtaskCount = {subtaskCount},"
             + $" default temperature = {temperature}, temperature multiplier per level = {tempMultPerLevel}, maxConcurrentGPTRequests = {maxConcurrentGPTRequests},"
-            + $" showPrompts = {showPrompts}, showResults = {showResults}, useGrounding = {useGrounding}";
+            + $" showPrompts = {showPrompts}, showResults = {showResults}, useGrounding = {useGrounding}, shouldLoadPlan = {shouldLoadPlan}, indexToBuild = {indexToBuild}";
             return stringified;
         }
     }

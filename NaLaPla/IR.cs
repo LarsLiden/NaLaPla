@@ -56,32 +56,30 @@ namespace NaLaPla
 
         public static List<string> GetRelatedDocuments(string text, int maxResults = 5) 
         {
-            try {
-                using var dir = FSDirectory.Open(IndexDirectory());
-                using var analyzer = new StandardAnalyzer(AppLuceneVersion);
-                var indexConfig = new IndexWriterConfig(AppLuceneVersion, analyzer);
-                using var writer = new IndexWriter(dir, indexConfig);
+            using var dir = FSDirectory.Open(IndexDirectory());
+            using var analyzer = new StandardAnalyzer(AppLuceneVersion);
+            var indexConfig = new IndexWriterConfig(AppLuceneVersion, analyzer);
+            using var writer = new IndexWriter(dir, indexConfig);
 
-                using var reader = writer.GetReader(applyAllDeletes: true);
-                var searcher = new IndexSearcher(reader);
+            using var reader = writer.GetReader(applyAllDeletes: true);
+            var searcher = new IndexSearcher(reader);
 
-                QueryParser parser = new QueryParser(AppLuceneVersion, "body", analyzer);
-                Query query = parser.Parse(text);
+            QueryParser parser = new QueryParser(AppLuceneVersion, "body", analyzer);
+            Query query = parser.Parse(text);
 
-                var hits = searcher.Search(query, maxResults).ScoreDocs;
+            var hits = searcher.Search(query, maxResults).ScoreDocs;
 
-                // Display the output in a table
-                Util.WriteToConsole(text, ConsoleColor.Red);
-                Util.WriteToConsole($"{"Score",10}" + $" {"Topic",-15}", ConsoleColor.DarkRed);
-                foreach (var hit in hits)
-                {
-                    var foundDoc = searcher.Doc(hit.Doc);
-                    Console.WriteLine($"{hit.Score:f8}" + $" {foundDoc.Get("topic"),-15}");
-                }
-
-                var topDocuments = hits.Select(hit => searcher.Doc(hit.Doc).Get("body")).ToList();
-                return topDocuments;
+            // Display the output in a table
+            //Util.WriteToConsole(text, ConsoleColor.Blue);
+            Util.WriteToConsole($"{"Score",10}" + $" {"Topic",-15}", ConsoleColor.DarkBlue);
+            foreach (var hit in hits)
+            {
+                var foundDoc = searcher.Doc(hit.Doc);
+                Util.WriteToConsole($"{hit.Score:f8}" + $" {foundDoc.Get("topic"),-15}", ConsoleColor.DarkCyan);
             }
+
+            var topDocuments = hits.Select(hit => searcher.Doc(hit.Doc).Get("body")).ToList();
+            return topDocuments;
         }
     }
 }
