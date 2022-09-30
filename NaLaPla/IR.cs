@@ -34,12 +34,15 @@ namespace NaLaPla
 
             try
             {
+                var numberDocuments = 0;
                 var doc = dataProvider.GetNextDocument();
                 while (doc != null) 
                 {
+                    numberDocuments++;
                     writer.AddDocument(doc);
                     doc = dataProvider.GetNextDocument();
                 }
+                Util.WriteToConsole($"Added {numberDocuments} documents.", ConsoleColor.Green);
                 writer.Flush(triggerMerge: false, applyAllDeletes: false);
             }
             catch
@@ -54,7 +57,7 @@ namespace NaLaPla
             }
         }
 
-        public static List<string> GetRelatedDocuments(string text, int maxResults = 5) 
+        public static List<string> GetRelatedDocuments(string text, bool showGrounding = false, int maxResults = 20) 
         {
             using var dir = FSDirectory.Open(IndexDirectory());
             using var analyzer = new StandardAnalyzer(AppLuceneVersion);
@@ -70,12 +73,13 @@ namespace NaLaPla
             var hits = searcher.Search(query, maxResults).ScoreDocs;
 
             // Display the output in a table
-            //Util.WriteToConsole(text, ConsoleColor.Blue);
-            Util.WriteToConsole($"{"Score",10}" + $" {"Topic",-15}", ConsoleColor.DarkBlue);
-            foreach (var hit in hits)
-            {
-                var foundDoc = searcher.Doc(hit.Doc);
-                Util.WriteToConsole($"{hit.Score:f8}" + $" {foundDoc.Get("topic"),-15}", ConsoleColor.DarkCyan);
+            if (showGrounding) {
+                Util.WriteToConsole($"{"Score",10}" + $" {"Topic",-15}", ConsoleColor.DarkBlue);
+                foreach (var hit in hits)
+                {
+                    var foundDoc = searcher.Doc(hit.Doc);
+                    Util.WriteToConsole($"{hit.Score:f8}" + $" {foundDoc.Get("topic"),-30}", ConsoleColor.DarkCyan);
+                }
             }
 
             var topDocuments = hits.Select(hit => searcher.Doc(hit.Doc).Get("body")).ToList();

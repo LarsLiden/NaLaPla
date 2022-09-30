@@ -2,8 +2,15 @@ namespace NaLaPla
 {
     public class RuntimeConfig {
         public int maxConcurrentGPTRequests = 25;
-        public bool showPrompts = false; // whether or not to print each prompt as it is submitted to GPT. Prompts always stored in plan.prompt.
-        public bool showResults = false; // print the parsed result of each request to the console
+
+        // whether or not to print each prompt as it is submitted to GPT. Prompts always stored in plan.prompt.
+        public bool showPrompts = false; 
+        
+        // print the parsed result of each request to the console
+        public bool showResults = false; 
+
+        // Show document retrieval when grounding is employed
+        public bool showGrounding = false;
 
         // Should grounding be added to prompts
         public bool useGrounding = true;
@@ -20,7 +27,7 @@ namespace NaLaPla
         public override string ToString() {
             var stringified = $"expandDepth = {expandDepth}, subtaskCount = {subtaskCount},"
             + $" default temperature = {temperature}, temperature multiplier per level = {tempMultPerLevel}, maxConcurrentGPTRequests = {maxConcurrentGPTRequests},"
-            + $" showPrompts = {showPrompts}, showResults = {showResults}, useGrounding = {useGrounding}, shouldLoadPlan = {shouldLoadPlan}, indexToBuild = {indexToBuild}";
+            + $" showPrompts = {showPrompts}, showResults = {showResults}, showGrounding = {showGrounding}, useGrounding = {useGrounding}, shouldLoadPlan = {shouldLoadPlan}, indexToBuild = {indexToBuild}";
             return stringified;
         }
     }

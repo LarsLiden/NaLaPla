@@ -40,6 +40,8 @@ namespace NaLaPla
 
     class Program {
 
+        const int MAX_PROMPT_SIZE = 2000;
+
         static Plan ?basePlan;
         static int GPTRequestsTotal = 0;
 
@@ -447,11 +449,15 @@ namespace NaLaPla
             
             // Now add grounding 
             if (configuration.useGrounding) {
-                var documents = IR.GetRelatedDocuments($"{description}\n{numberedSubTasksAsString}");
+                var promptSize = Util.NumWordsIn(prompt);
+                var maxGrounds = MAX_PROMPT_SIZE - promptSize;
+
+                var documents = IR.GetRelatedDocuments($"{description}\n{numberedSubTasksAsString}", configuration.showGrounding);
                 var grounding = "";
                 foreach (var document in documents) {
                     grounding += $"{document}{Environment.NewLine}";
                 }
+                grounding = Util.LimitWordCountTo(grounding, maxGrounds);
                 prompt = $"{grounding}{Environment.NewLine}{prompt}";
             }
 
@@ -463,6 +469,5 @@ namespace NaLaPla
             plan.prompt = new Prompt(prompt,configuration);
             return prompt;
         }
-   
     }
-  }
+}
