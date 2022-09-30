@@ -130,8 +130,8 @@ namespace NaLaPla
                 // IDEA: Can we convert post-processed plan back into plan object?
                 Util.SaveText(saveFilename, postPrompt.responses[i].ToString());
             }
-            
         }
+        
         static List<FlagType> TryGetFlag<T>(List<String>flagsAndValues, FlagType targetFlag, ref T targetSetting) {
             var flags = new List<FlagType>();
             foreach(string flagAndValue in flagsAndValues) {
