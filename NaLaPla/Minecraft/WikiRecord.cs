@@ -61,5 +61,12 @@ namespace NaLaPla
     {
         public string text { get; set; }
         public List<double> bbox { get; set; }
+
+        public double LeftMargin 
+        {
+            get {
+                return bbox[0];
+            }
+        }
     }
 }

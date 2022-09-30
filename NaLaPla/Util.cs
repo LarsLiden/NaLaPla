@@ -263,5 +263,9 @@ namespace NaLaPla
             }
             return wordCount;
         }
+
+        static public string LimitWordCountTo(string text, int number) {
+             return text.Split(' ').Take(number).Aggregate((a, b) => a + " " + b); 
+        }
     }
 }
