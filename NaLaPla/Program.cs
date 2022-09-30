@@ -60,8 +60,7 @@ namespace NaLaPla
                     .AddEnvironmentVariables()
                     .Build();
 
-            //IR.CreateIndex(new MineCraftDataProvider());
-            //IR.TestQuery();
+            IR.CreateIndex(new MineCraftDataProvider());
             //Util.TestParseMultiList();
             //return;
 
@@ -268,7 +267,7 @@ namespace NaLaPla
             }
             plan.subPlans = new List<Plan>();
             foreach (var item in list) {
-                var steps = item.Split("-").ToList().Select(s => s.TrimStart().TrimEnd(' ', '\r', '\n')).ToList();
+                var steps = item.Split(" -").ToList().Select(s => s.TrimStart().TrimEnd(' ', '\r', '\n')).ToList();
 
                 // Check if the plan has bottomed out
                 if (steps[0]=="") {
@@ -396,20 +395,28 @@ namespace NaLaPla
 
         }
 
+        // Convert list of plan subtasks into a list
+        static string GetNumberedSubTasksAsString(Plan plan) {
+                var list = "START LIST\n";
+                list += Util.GetNumberedSteps(plan);
+                list += "END LIST";
+                return list;
+        }
         static string GenerateExpandPrompt(Plan plan) {
+
+            string prompt;
+            string numberedSubTasksAsString = "";
+
+            if (plan.subPlanDescriptions.Count > 0) {
+                numberedSubTasksAsString = GetNumberedSubTasksAsString(plan);
+            }
             var description = (basePlan is null || basePlan.description is null) ? "fire your lead developer" : basePlan.description;
             if (plan.planLevel > 0  && ExpandMode == ExpandModeType.ONE_BY_ONE) {
                 // var prompt =  $"Your job is to {plan.parent.description}. Your current task is to {plan.description}. Please specify a numbered list of the work that needs to be done.";
                 //var prompt = $"Please specify a numbered list of the work that needs to be done to {plan.description} when you {basePlan.description}";
                 //var prompt = $"Please specify one or two steps that needs to be done to {plan.description} when you {basePlan.description}";
-                var prompt = $"Your task is to {description}. Repeat the list and add {configuration.subtaskCount} subtasks to each of the items.\n\n";
-                prompt += Util.GetNumberedSteps(plan);
-                prompt += "END LIST";
-                plan.prompt = new Prompt(prompt,configuration);
-                if (configuration.showPrompts) {
-                    Util.WriteToConsole($"\n{prompt}\n", ConsoleColor.Cyan);
-                }
-                return prompt;
+                prompt = $"Your task is to {description}. Repeat the list and add {configuration.subtaskCount} subtasks to each of the items.\n\n";
+                prompt += numberedSubTasksAsString;
             }
             else if (plan.subPlanDescriptions.Count > 0 && ExpandMode == ExpandModeType.AS_A_LIST) {
                 /*
@@ -417,21 +424,30 @@ namespace NaLaPla
                 prompt += Util.GetNumberedSteps(plan);
                 prompt += "Please specify a bulleted list of the work that needs to be done for each step.";
                 */
-                var prompt = $"Below are instruction for a computer agent to {description}. Repeat the list and add {configuration.subtaskCount} subtasks to each of the items.\n\n";// in cases where the computer agent could use detail\n\n";
-                prompt += Util.GetNumberedSteps(plan);
-                prompt += "END LIST";
-                plan.prompt = new Prompt(prompt,configuration);
-                if (configuration.showPrompts) {
-                    Util.WriteToConsole($"\n{prompt}\n", ConsoleColor.Cyan);
+                prompt = $"Below are instruction for a computer agent to {description}. Repeat the list and add {configuration.subtaskCount} subtasks to each of the items.\n\n";// in cases where the computer agent could use detail\n\n";
+                prompt += numberedSubTasksAsString;
+            }
+            else {
+                prompt =  $"Your job is to provide instructions for a computer agent to {plan.description}. Please specify a numbered list of {configuration.subtaskCount} brief tasks that needs to be done.";
+            }
+            
+            // Now add grounding 
+            if (configuration.useGrounding) {
+                var documents = IR.GetRelatedDocuments($"{description}\n{numberedSubTasksAsString}");
+                var grounding = "";
+                foreach (var document in documents) {
+                    grounding += $"{document}{Environment.NewLine}";
                 }
-                return prompt;
+                prompt = $"{grounding}{Environment.NewLine}{prompt}";
             }
-            var firstPrompt =  $"Your job is to provide instructions for a computer agent to {plan.description}. Please specify a numbered list of {configuration.subtaskCount} brief tasks that needs to be done.";
-            plan.prompt = new Prompt(firstPrompt, configuration);
+
             if (configuration.showPrompts) {
-                Util.WriteToConsole($"\n{firstPrompt}\n", ConsoleColor.Cyan);
+                Util.WriteToConsole($"\n{prompt}\n", ConsoleColor.Cyan);
             }
-            return firstPrompt;
+
+            // TODO: This has code smell.  Both setting the returning the prompt
+            plan.prompt = new Prompt(prompt,configuration);
+            return prompt;
         }
    
     }
