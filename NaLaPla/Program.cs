@@ -36,7 +36,7 @@ namespace NaLaPla
     }
 
     class Program {
-    
+        static bool newPlan = true;
         static Plan ?basePlan;
         static int GPTRequestsTotal = 0;
 
@@ -79,11 +79,10 @@ namespace NaLaPla
                 } else {
                     (string planDescription, List<FlagType> flags) = ParseUserInput(userInput);
 
-                    foreach (FlagType flag in flags) {
-                        if (flag == FlagType.LOAD) {
-                            basePlan = Util.LoadPlan(planDescription); 
-                            bail = true;
-                        }
+                    if (!newPlan) {
+                        Console.WriteLine($"Loading {planDescription}");
+                        basePlan = Util.LoadPlan(planDescription); 
+                        bail = true;
                     }
 
                     if (!String.IsNullOrEmpty(planDescription)) {
@@ -133,57 +132,43 @@ namespace NaLaPla
             }
             
         }
-
-        static (string, List<FlagType>) ParseUserInput(string userInput) {
-            var pieces = userInput.Split("-").ToList();
-            var planDescription = pieces[0].TrimEnd();
-            pieces.RemoveAt(0);
+        static List<FlagType> TryGetFlag<T>(List<String>flagsAndValues, FlagType targetFlag, ref T targetSetting) {
             var flags = new List<FlagType>();
-            FlagType flag;
-            foreach (string flagAndValue in pieces) {
+            foreach(string flagAndValue in flagsAndValues) {
                 var flagStrings = flagAndValue.Split(" ");
                 var flagName = flagStrings[0];
                 var flagArg = flagStrings.Count() > 1 ? flagStrings[1] : null;
+                FlagType flag;
                 if (Enum.TryParse<FlagType>(flagName, true, out flag)) {
-
-                    // Should overwrite depth amount?
-                    if (flag == FlagType.DEPTH) {
-                        int value;
-                        if (int.TryParse(flagArg, out value)) {
-                            configuration.expandDepth = value;
-                        }
-                    }
-                    // Should overwrite concurrent request max?
-                    if (flag == FlagType.MAXGPT) {
-                        int value;
-                        if (int.TryParse(flagArg, out value)) {
-                            configuration.maxConcurrentGPTRequests = value;
-                        }
-                    }  
-                    // Should overwrite default temperature?
-                    if (flag == FlagType.TEMP) {
-                        float value;
-                        if (float.TryParse(flagArg, out value)) {
-                            configuration.temperature = value;
-                        }
-                    }        
-                    // Should overwrite temperature multiplier?
-                    if (flag == FlagType.TEMPMULT) {
-                        float value;
-                        if (float.TryParse(flagArg, out value)) {
-                            configuration.tempMultPerLevel = value;
-                        }
-                    }                                          
-                    // Should overwrite subtask count?
-                    if (flag == FlagType.SUBTASKS) {
+                    if (flag == targetFlag) {
                         if (flagArg is not null) {
-                            configuration.subtaskCount = flagArg;
+                            T value = (T)Convert.ChangeType(flagArg, typeof(T));
+                            if (value is not null) {
+                                targetSetting = value;
+                            }
+                        } else {
+                            targetSetting = default(T);
                         }
-                    }               
-                    flags.Add(flag);
+                        flags.Add(flag);
+                    }
                 }
             }
+            return flags;
+        }
 
+        static (string, List<FlagType>) ParseUserInput(string userInput) {
+
+            var pieces = userInput.Split("-").ToList();
+            var planDescription = pieces[0].TrimEnd();
+            pieces.RemoveAt(0);
+
+            var flags = new List<FlagType>();
+            flags.AddRange(TryGetFlag(pieces, FlagType.DEPTH, ref configuration.expandDepth));
+            flags.AddRange(TryGetFlag(pieces, FlagType.TEMP, ref configuration.temperature));
+            flags.AddRange(TryGetFlag(pieces, FlagType.TEMPMULT, ref configuration.tempMultPerLevel));
+            flags.AddRange(TryGetFlag(pieces, FlagType.MAXGPT, ref configuration.maxConcurrentGPTRequests));
+            flags.AddRange(TryGetFlag(pieces, FlagType.SUBTASKS, ref configuration.subtaskCount));
+            flags.AddRange(TryGetFlag(pieces, FlagType.LOAD, ref newPlan));
             return (planDescription, flags);
         }
 
