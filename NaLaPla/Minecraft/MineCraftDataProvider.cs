@@ -50,6 +50,32 @@ namespace NaLaPla
             Util.WriteToConsole($"Deleted {dirNames.Count} directories", ConsoleColor.Green );
         }
 
+        public static void UtilCopyOnlyJSONFiles(string sourceDir, string destDir) {
+            var sourceFolder = Path.Combine(Environment.CurrentDirectory, SOURCE_DIR, sourceDir); 
+            var destFolder = Path.Combine(Environment.CurrentDirectory, SOURCE_DIR, destDir); 
+            CopyOnlyJSONFiles(sourceFolder, destFolder);
+        }
+        private static void CopyOnlyJSONFiles(string sourceDir, string destDir) {
+
+            var fileNames = new Stack<string>(System.IO.Directory.GetFiles(sourceDir, "data.json"));
+            
+            if (!System.IO.Directory.Exists(destDir)) {
+                System.IO.Directory.CreateDirectory(destDir);
+            }
+
+            foreach (var f in fileNames) {
+                string fileName = f.Substring(sourceDir.Length + 1);
+                File.Copy(Path.Combine(sourceDir, fileName), Path.Combine(destDir, fileName), true);
+            }
+
+            var dirNames = new Stack<string>(System.IO.Directory.GetDirectories(sourceDir));
+            foreach (var d in dirNames) {
+                string dirName = d.Substring(sourceDir.Length +1);
+                CopyOnlyJSONFiles(Path.Combine(sourceDir, dirName), Path.Combine(destDir, dirName));
+            }
+        }
+
+
         private Stack<string> DataFiles {
             get {
                 if (_DataFiles == null) {
