@@ -1,0 +1,25 @@
+namespace NaLaPla
+{
+    using Reddit;
+    using Reddit.Controllers;
+
+    public class RedditExtractor
+    {
+        private static RedditClient _Reddit = null;
+
+        private static RedditClient Reddit { 
+            get {
+                if (_Reddit == null) {
+                    _Reddit = new RedditClient(appId, refreshToken);        
+                }
+                return _Reddit;
+            }
+        }
+
+        static public Post GetPost(string postId)
+        {
+            var post = Reddit.Post(Reddit.Models, postId).About();
+            return post;
+        }
+    }
+}

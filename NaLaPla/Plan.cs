@@ -25,5 +25,13 @@ public class Plan {
         public Plan? parent;
         public PlanState state = PlanState.CREATED;
         public Prompt? prompt;
+
+        // Convert list of plan subtasks into a list
+        public string GetNumberedSubTasksAsString() {
+                var list = "START LIST\n";
+                list += Util.GetNumberedSteps(this);
+                list += "END LIST";
+                return list;
+        }
     }
 }
