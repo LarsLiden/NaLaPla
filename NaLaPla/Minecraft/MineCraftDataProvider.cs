@@ -18,8 +18,8 @@ namespace NaLaPla
         // Stack of files to process
         private Stack<string> _DataFiles = null;
 
-        // Stock of document section w/in file to process
-        private Stack<string> SubSections = new Stack<string>();
+        // Queue of document section w/in file to process
+        private Queue<string> SubSections = new Queue<string>();
 
         // Current loaded file
         private WikiRecord CurWikiRecord = null;
@@ -104,22 +104,43 @@ namespace NaLaPla
                 Util.WriteToConsole($"Adding: {CurWikiRecord.Title, -30} with {SubSections.Count, -10} items ({DataFiles.Count()} remaining)", ConsoleColor.DarkGreen);
                 return NextDocumentSection();
             } 
-            var nextDocument = SubSections.Pop();    
+            var nextDocument = SubSections.Dequeue();    
             return nextDocument;
         }
 
         // Add text to stack but only if meets length requirements
-        private void AddText(Text curText, Stack<string> outputStack) {
+        private void AddText(Text curText, Queue<string> outputQueue) {
             var curTextNumWords = Util.NumWordsIn(curText.text);
             if (curTextNumWords >= MIN_REQUIRED_WORDS) {
-                outputStack.Push(curText.text);
+                outputQueue.Enqueue(curText.text);
             }
+        }
+
+        // If text is numbered item (i.e. "4. carrots"), return "4" or 0 if not
+        private int GetNumberedIndex(string text) {
+            var parts = text.Split(".");
+            if (parts.Count() < 2) {
+                return 0;
+            }
+            if (int.TryParse(parts[0], out int n)) {
+                return n;
+            }
+            return 0;
         }
 
         // Based on position is the next text item indented from the previous
         private bool IsSubItem(Text curText, Text nextText) {
             var inset = nextText.LeftMargin - curText.LeftMargin;
             if (inset < 40 && inset > 15) {
+                return true;
+            }
+
+            var curTextIndex = GetNumberedIndex(curText.text);
+            var nextTextIndex = GetNumberedIndex(nextText.text);
+            if (curTextIndex == 0 || nextTextIndex == 0) {
+                return false;
+            }
+            if (nextTextIndex == curTextIndex + 1) {
                 return true;
             }
             return false;
@@ -134,16 +155,16 @@ namespace NaLaPla
             return false;
         }
 
-        private void ProcessText(Text curText, Queue<Text> inputQueue, Stack<string> outputStack, string section) {
+        private void ProcessText(Text curText, Queue<Text> inputQueue, Queue<string> outputQueue, string section) {
 
             // Get next item, if none add final result
             Text nextText;
             if (!inputQueue.TryDequeue(out nextText)) {
                 if (section == "") {
-                    AddText(curText, outputStack);
+                    AddText(curText, outputQueue);
                 }
                 else {
-                    outputStack.Push(section);
+                    outputQueue.Enqueue(section);
                 }
                 return;
             }
@@ -157,7 +178,7 @@ namespace NaLaPla
                     section += $"{curText.text}\n{nextText.text}\n";
                 }
                 // Process the next item
-                ProcessText(nextText, inputQueue, outputStack, section);   
+                ProcessText(nextText, inputQueue, outputQueue, section);   
 
             }
             // Is next item a peer
@@ -167,42 +188,49 @@ namespace NaLaPla
                     section += $"{nextText.text}\n";
 
                     // Process the next item
-                    ProcessText(nextText, inputQueue, outputStack, section);    
+                    ProcessText(nextText, inputQueue, outputQueue, section);    
                 }
                 // Otherwise add section and process next item
                 else {
                     // Add accumulated section
-                    AddText(curText, outputStack);
+                    AddText(curText, outputQueue);
 
                     // Process the next item
-                    ProcessText(nextText, inputQueue, outputStack, "");
+                    ProcessText(nextText, inputQueue, outputQueue, "");
                 }
             }
             // Next item is not connect to this one
             else {
                 if (section != "") {
-                    outputStack.Push(section);
+                    outputQueue.Enqueue(section);
+                }
+                // Ignore wiki context boxes
+                else if (curText.text == "Contents") {
+                    if (!inputQueue.TryDequeue(out nextText)) {
+                        return;
+                    }
+                    ProcessText(nextText, inputQueue, outputQueue, "");
                 }
                 else {
                     // Add the current item
-                    AddText(curText, outputStack);
+                    AddText(curText, outputQueue);
                 }
 
                 // Process the next item
-                ProcessText(nextText, inputQueue, outputStack, "");
+                ProcessText(nextText, inputQueue, outputQueue, "");
             }
 
         }
         // Filter on document section
-        private Stack<string> GenerateDocumentSections(List<Text> sections) {
-            var outputStack = new Stack<string>();
+        private Queue<string> GenerateDocumentSections(List<Text> sections) {
+            var outputQueue = new Queue<string>();
             var inputQueue = new Queue<Text>(sections);
 
             Text nextText;
             if (inputQueue.TryDequeue(out nextText)) {
-                ProcessText(nextText, inputQueue, outputStack, ""); 
+                ProcessText(nextText, inputQueue, outputQueue, ""); 
             }
-            return outputStack;
+            return outputQueue;
         }
 
         public Document GetNextDocument() {
