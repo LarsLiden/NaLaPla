@@ -4,6 +4,7 @@ namespace NaLaPla
 {
     using Lucene.Net.Documents;
     using Newtonsoft.Json.Linq;
+    using HtmlAgilityPack;
 
     class MineCraftDataProvider : IDataProvider
     {
@@ -86,6 +87,75 @@ namespace NaLaPla
             }
         }
 
+        // Clean up the inner text
+        private string CleanInnerText(string text) {
+            return text.Replace("[]","").Replace("\n", "").Replace("\t", "");
+        }
+
+        // Augment wikiRecord with given tag type
+        private void SetTags(WikiRecord wikiRecord, HtmlDocument doc, string tag) {
+            // Gather list of inner text
+            var texts = new List<string>();
+            var nodes = doc.DocumentNode.SelectNodes($"//{tag}");
+            if (nodes == null) {
+                return;
+            }
+
+            foreach (HtmlNode node in nodes) {
+                texts.Add(CleanInnerText(node.InnerText));
+            }
+
+            // Create a dictionary with count of occurances
+            Dictionary<string, int> tagDictionary = new Dictionary<string, int>();
+            foreach (var text in texts) {
+                if (tagDictionary.ContainsKey(text)) {
+                    tagDictionary[text]++;
+                }
+                else {
+                    tagDictionary[text] = 1;
+                }
+            }
+
+            // Add html tag if number of occurences matches
+            foreach (var keyValue in tagDictionary) {
+                var textObjs = wikiRecord.texts.Where(t => t.text == keyValue.Key);
+                if (textObjs.Count() == keyValue.Value) {
+                    foreach (var textObj in textObjs) {
+                        textObj.htmlTag = tag;
+                    }
+                }
+            }
+        }
+        private void AugmentWithDomData(WikiRecord wikiRecord) {
+
+            try {
+                // If already augmented don't need to do again
+                if (wikiRecord.metadata.hasBeenAugmented) {
+                    return;
+                }
+                Util.WriteToConsole($"Augmenting Data: {wikiRecord.Title}", ConsoleColor.Gray);
+                var web = new HtmlWeb();
+                var doc = web.Load(wikiRecord.metadata.url);
+                
+                // Add tag infomation to wiki record
+                SetTags(wikiRecord, doc, "h1");
+                SetTags(wikiRecord, doc, "h2");
+                SetTags(wikiRecord, doc, "h3");
+                SetTags(wikiRecord, doc, "p");
+                wikiRecord.metadata.hasBeenAugmented = true;
+
+                // Re-save file with added tags
+                var json = Newtonsoft.Json.JsonConvert.SerializeObject(wikiRecord);
+                var writer = new StreamWriter(wikiRecord.metadata.fileName);
+                writer.Write(json);
+                writer.Close();
+            }
+            catch (Exception e) {
+                Util.WriteToConsole($"Augmentation error {e.ToString()}");
+                throw e;
+            }
+        }
+
         // Get next document section.  If all sections have been handled, move on to next file
         private string NextDocumentSection() {
             if (SubSections.Count == 0) {
@@ -95,6 +165,8 @@ namespace NaLaPla
                 var nextFile = DataFiles.Pop();
                 var jsonString = File.ReadAllText(nextFile);
                 CurWikiRecord = Newtonsoft.Json.JsonConvert.DeserializeObject<WikiRecord>(jsonString);
+                CurWikiRecord.metadata.fileName = nextFile;
+                AugmentWithDomData(CurWikiRecord);
 
                 if (CurWikiRecord == null || CurWikiRecord.texts == null) {
                     return NextDocumentSection();    

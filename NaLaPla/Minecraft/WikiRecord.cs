@@ -26,6 +26,11 @@ namespace NaLaPla
         public string url { get; set; }
         public string title { get; set; }
         public string time { get; set; }
+
+        // Has the data been augmented with HTML info
+        public bool hasBeenAugmented { get; set; } = false;
+
+        public string fileName { get; set; }
     }
 
     public class WikiRecord
@@ -62,6 +67,7 @@ namespace NaLaPla
         public string text { get; set; }
         public List<double> bbox { get; set; }
 
+        public string htmlTag { get; set; }
         public double LeftMargin 
         {
             get {
