@@ -42,7 +42,9 @@ namespace NaLaPla
                 //var prompt = $"Please specify a numbered list of the work that needs to be done to {plan.description} when you {basePlan.description}";
                 //var prompt = $"Please specify one or two steps that needs to be done to {plan.description} when you {basePlan.description}";
                 //text = $"Your task is to {description}. Repeat the list and add {runtimeConfiguration.subtaskCount} subtasks to each of the items.\n\n";
-                text = $"Provide a list of short actions for a computer agent to {description} in MineCraft.\n\n";
+
+                text = basePlan.ToString();
+                text += $"\nProvide a list of short actions for a computer agent to {description} in MineCraft.\n\n";
             }
             else if (plan.subPlanDescriptions.Count > 0 && runtimeConfiguration.ExpandMode == ExpandModeType.AS_A_LIST) {
                 /*

@@ -100,7 +100,7 @@ namespace NaLaPla
                     return NextDocumentSection();    
                 }
                 var subTexts = CurWikiRecord.texts.Select(t => t.text);
-                SubSections = GenerateDocumentSections(CurWikiRecord.texts);
+                SubSections = GenerateDocumentSections(CurWikiRecord);
                 Util.WriteToConsole($"Adding: {CurWikiRecord.Title, -30} with {SubSections.Count, -10} items ({DataFiles.Count()} remaining)", ConsoleColor.DarkGreen);
                 return NextDocumentSection();
             } 
@@ -153,6 +153,21 @@ namespace NaLaPla
                 return true;
             }
             return false;
+        }
+
+        // Capture data from tables that involves steps and descriptions
+        private void ProcessTable(Table curTable, Queue<string> outputQueue) {
+            var stepCol = curTable.headers.text.IndexOf("Step");
+            var descCol = curTable.headers.text.IndexOf("Description");
+            if (stepCol < 0 || descCol < 0) {
+                return;
+            }
+
+            var section = "";
+            for (int i=0;i<curTable.cells.text.Count; i=i+curTable.headers.text.Count) {
+                section += $"{curTable.cells.text[i+stepCol]}. {curTable.cells.text[i+descCol]}\n";
+            }
+            outputQueue.Enqueue(section);
         }
 
         private void ProcessText(Text curText, Queue<Text> inputQueue, Queue<string> outputQueue, string section) {
@@ -222,14 +237,21 @@ namespace NaLaPla
 
         }
         // Filter on document section
-        private Queue<string> GenerateDocumentSections(List<Text> sections) {
+        private Queue<string> GenerateDocumentSections(WikiRecord wikiRecord) {
             var outputQueue = new Queue<string>();
-            var inputQueue = new Queue<Text>(sections);
 
-            Text nextText;
-            if (inputQueue.TryDequeue(out nextText)) {
+            // Add text sections
+            var inputQueue = new Queue<Text>(wikiRecord.texts);
+            if (inputQueue.TryDequeue(out Text nextText)) {
                 ProcessText(nextText, inputQueue, outputQueue, ""); 
             }
+
+            // Add table sections
+            var tableQueue = new Queue<Table>(wikiRecord.tables);
+            while (tableQueue.TryDequeue(out Table nextTable)) {
+                ProcessTable(nextTable, outputQueue); 
+            }             
+
             return outputQueue;
         }
 
