@@ -116,7 +116,7 @@ namespace NaLaPla
                 }
             }
 
-            // Add html tag if number of occurences matches
+            // Add html tag if number of occurrences matches
             foreach (var keyValue in tagDictionary) {
                 var textObjs = wikiRecord.texts.Where(t => t.text == keyValue.Key);
                 if (textObjs.Count() == keyValue.Value) {
@@ -137,7 +137,7 @@ namespace NaLaPla
                 var web = new HtmlWeb();
                 var doc = web.Load(wikiRecord.metadata.url);
                 
-                // Add tag infomation to wiki record
+                // Add tag information to wiki record
                 SetTags(wikiRecord, doc, "h1");
                 SetTags(wikiRecord, doc, "h2");
                 SetTags(wikiRecord, doc, "h3");
@@ -180,53 +180,6 @@ namespace NaLaPla
             return nextDocument;
         }
 
-        // Add text to stack but only if meets length requirements
-        private void AddText(Text curText, Queue<string> outputQueue) {
-            var curTextNumWords = Util.NumWordsIn(curText.text);
-            if (curTextNumWords >= MIN_REQUIRED_WORDS) {
-                outputQueue.Enqueue(curText.text);
-            }
-        }
-
-        // If text is numbered item (i.e. "4. carrots"), return "4" or 0 if not
-        private int GetNumberedIndex(string text) {
-            var parts = text.Split(".");
-            if (parts.Count() < 2) {
-                return 0;
-            }
-            if (int.TryParse(parts[0], out int n)) {
-                return n;
-            }
-            return 0;
-        }
-
-        // Based on position is the next text item indented from the previous
-        private bool IsSubItem(Text curText, Text nextText) {
-            var inset = nextText.LeftMargin - curText.LeftMargin;
-            if (inset < 40 && inset > 15) {
-                return true;
-            }
-
-            var curTextIndex = GetNumberedIndex(curText.text);
-            var nextTextIndex = GetNumberedIndex(nextText.text);
-            if (curTextIndex == 0 || nextTextIndex == 0) {
-                return false;
-            }
-            if (nextTextIndex == curTextIndex + 1) {
-                return true;
-            }
-            return false;
-        }
-
-        // Do the two text items have the same indentation
-        private bool IsPeer(Text curText, Text nextText) {
-            var inset = nextText.LeftMargin - curText.LeftMargin;
-            if (inset == 0) {
-                return true;
-            }
-            return false;
-        }
-
         // Capture data from tables that involves steps and descriptions
         private void ProcessTable(Table curTable, Queue<string> outputQueue) {
             var stepCol = curTable.headers.text.IndexOf("Step");
@@ -242,81 +195,92 @@ namespace NaLaPla
             outputQueue.Enqueue(section);
         }
 
-        private void ProcessText(Text curText, Queue<Text> inputQueue, Queue<string> outputQueue, string section) {
+        private int TagLevel(Text text) {
+            if (text.htmlTag == "h1") {
+                return 1;
+            }
+            if (text.htmlTag == "h2") {
+                return 2;
+            }
+            if (text.htmlTag == "h3") {
+                return 3;
+            }
+            return 4;
+        }
 
-            // Get next item, if none add final result
-            Text nextText;
-            if (!inputQueue.TryDequeue(out nextText)) {
-                if (section == "") {
-                    AddText(curText, outputQueue);
-                }
-                else {
-                    outputQueue.Enqueue(section);
+        private String GetBodyText(List<Text> textItems) {
+
+            // Filter out contents box
+            if (textItems[1] != null && textItems[1].text == "Contents") {
+                return null;
+            }
+
+            // Filter out section with no body
+            if (TagLevel(textItems.Last()) < 4) {
+                return null;
+            }
+
+            string output = "";
+            foreach (var text in textItems) {
+                output += $"{text.text}\n";
+            }
+            return output;
+        }
+
+        // Process text into sections by headers
+        private void ProcessText(Queue<Text> inputQueue, Queue<string> outputQueue, List<Text> textItems) {
+
+            var lastTagLevel = textItems.Any() ? TagLevel(textItems.Last()) : 0;
+
+            // If no next item
+            if (!inputQueue.TryDequeue(out Text curText)) {
+                // Add to output if more than just headers
+                if (lastTagLevel > 3) {
+                    var bodyText = GetBodyText(textItems);
+                    if (bodyText != null) {
+                        outputQueue.Enqueue(bodyText);    
+                    }
                 }
                 return;
             }
 
-            // If next item a sub-item of the current ont
-            if (IsSubItem(curText, nextText)) {
-                if (section != "") {
-                    section += $"{nextText.text}\n";
-                }
-                else {
-                    section += $"{curText.text}\n{nextText.text}\n";
-                }
-                // Process the next item
-                ProcessText(nextText, inputQueue, outputQueue, section);   
+            var curTagLevel = TagLevel(curText);
 
+            // If moved up a tag level move to next item
+            if (curTagLevel < lastTagLevel) {
+                var bodyText = GetBodyText(textItems);
+                if (bodyText != null) {
+                    outputQueue.Enqueue(bodyText);
+                }
+
+                // Trim at current tag level and add cur text
+                textItems = textItems.Take(curTagLevel-1).ToList();
+                textItems.Add(curText);
+                ProcessText(inputQueue, outputQueue, textItems);
             }
-            // Is next item a peer
-            else if (IsPeer(curText, nextText)) {
-                // If under the same section, add to section and keep processing
-                if (section != "") {
-                    section += $"{nextText.text}\n";
-
-                    // Process the next item
-                    ProcessText(nextText, inputQueue, outputQueue, section);    
-                }
-                // Otherwise add section and process next item
-                else {
-                    // Add accumulated section
-                    AddText(curText, outputQueue);
-
-                    // Process the next item
-                    ProcessText(nextText, inputQueue, outputQueue, "");
-                }
+            // If moved down a text level add it
+            else if (curTagLevel > lastTagLevel) {
+                textItems.Add(curText);
+                ProcessText(inputQueue, outputQueue, textItems);
             }
-            // Next item is not connect to this one
-            else {
-                if (section != "") {
-                    outputQueue.Enqueue(section);
+            // If same text level
+            else if (curTagLevel == lastTagLevel) {
+                // If a repeated header, replace it with the new one
+                if (curTagLevel < 4) {
+                    textItems.RemoveAt(lastTagLevel - 1);
                 }
-                // Ignore wiki context boxes
-                else if (curText.text == "Contents") {
-                    if (!inputQueue.TryDequeue(out nextText)) {
-                        return;
-                    }
-                    ProcessText(nextText, inputQueue, outputQueue, "");
-                }
-                else {
-                    // Add the current item
-                    AddText(curText, outputQueue);
-                }
-
-                // Process the next item
-                ProcessText(nextText, inputQueue, outputQueue, "");
+                textItems.Add(curText);
+                ProcessText(inputQueue, outputQueue, textItems);
             }
-
         }
+        
         // Filter on document section
         private Queue<string> GenerateDocumentSections(WikiRecord wikiRecord) {
             var outputQueue = new Queue<string>();
 
             // Add text sections
             var inputQueue = new Queue<Text>(wikiRecord.texts);
-            if (inputQueue.TryDequeue(out Text nextText)) {
-                ProcessText(nextText, inputQueue, outputQueue, ""); 
-            }
+            ProcessText(inputQueue, outputQueue, new List<Text>());
 
             // Add table sections
             var tableQueue = new Queue<Table>(wikiRecord.tables);

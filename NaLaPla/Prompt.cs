@@ -32,7 +32,7 @@ namespace NaLaPla
         public ExpandPrompt(Plan basePlan, Plan plan, RuntimeConfig runtimeConfiguration) {
 
             string numberedSubTasksAsString = "";
-
+            string irKey = "";
             if (plan.subPlanDescriptions.Count > 0) {
                 numberedSubTasksAsString = plan.GetNumberedSubTasksAsString();
             }
@@ -44,7 +44,8 @@ namespace NaLaPla
                 //text = $"Your task is to {description}. Repeat the list and add {runtimeConfiguration.subtaskCount} subtasks to each of the items.\n\n";
 
                 text = basePlan.ToString();
-                text += $"\nProvide a list of short actions for a computer agent to {description} in MineCraft.\n\n";
+                text += $"\nProvide a list of short actions for a computer agent to {plan.description} in MineCraft.\n\n";
+                irKey = plan.description;
             }
             else if (plan.subPlanDescriptions.Count > 0 && runtimeConfiguration.ExpandMode == ExpandModeType.AS_A_LIST) {
                 /*
@@ -54,27 +55,29 @@ namespace NaLaPla
                 */
                 text  = $"Below are instruction for a computer agent to {description}. Repeat the list and add {runtimeConfiguration.subtaskCount} subtasks to each of the items.\n\n";// in cases where the computer agent could use detail\n\n";
                 text  += numberedSubTasksAsString;
+                irKey = numberedSubTasksAsString;
             }
             else {
                 text  =  $"Your job is to provide instructions for a computer agent to {plan.description}. Please specify a numbered list of {runtimeConfiguration.subtaskCount} brief tasks that needs to be done.";
+                irKey = plan.description;
             }
             
+            if (runtimeConfiguration.showPrompts) {
+                Util.WriteToConsole($"\n{this.text}\n", ConsoleColor.Cyan);
+            }
+
             // Now add grounding 
             if (runtimeConfiguration.useGrounding) {
                 var promptSize = Util.NumWordsIn(this.text);
                 var maxGrounds = MAX_PROMPT_SIZE - promptSize;
 
-                var documents = IR.GetRelatedDocuments($"{description}\n{numberedSubTasksAsString}", runtimeConfiguration.showGrounding);
+                var documents = IR.GetRelatedDocuments($"{irKey}", runtimeConfiguration.showGrounding);
                 var grounding = "";
                 foreach (var document in documents) {
                     grounding += $"{document}{Environment.NewLine}";
                 }
                 grounding = Util.LimitWordCountTo(grounding, maxGrounds);
                 text = $"{grounding}{Environment.NewLine}{this.text}";
-            }
-
-            if (runtimeConfiguration.showPrompts) {
-                Util.WriteToConsole($"\n{this.text}\n", ConsoleColor.Cyan);
             }
         }   
     }
