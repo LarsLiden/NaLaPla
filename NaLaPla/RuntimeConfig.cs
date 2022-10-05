@@ -11,9 +11,9 @@ namespace NaLaPla
 
     public class RuntimeConfig {
 
-        public ExpandModeType ExpandMode = ExpandModeType.AS_A_LIST;
+        public ExpandModeType ExpandMode = ExpandModeType.ONE_BY_ONE;
 
-        public int maxConcurrentGPTRequests = 25;
+        public int maxConcurrentGPTRequests = 1;
 
         // whether or not to print each prompt as it is submitted to GPT. Prompts always stored in plan.prompt.
         public bool showPrompts = true; 
@@ -22,10 +22,10 @@ namespace NaLaPla
         public bool showResults = true; 
 
         // Show document retrieval when grounding is employed
-        public bool showGrounding = false;
+        public bool showGrounding = true;
 
         // Should grounding be added to prompts
-        public bool useGrounding = false;
+        public bool useGrounding = true;
 
         public int expandDepth = 2;
         public float temperature = 0.1f;
