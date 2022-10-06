@@ -30,6 +30,12 @@ namespace NaLaPla
         TEMP,            // default temperature]
         [Description("-TEMPMULT\t<float>\t\t\tTemperature multipler per level")]
         TEMPMULT,            // default temperature]        
+        [Description("-SHOWGROUND\t<bool>\t\t\tShow grounding info")]
+        SHOWGROUND,            // default temperature]
+        [Description("-USEGROUND\t<bool>\t\t\tEnable/disable grounding")]
+        USEGROUND,            // default temperature]  
+        [Description("-SHOWPROMPT\t<bool>\t\t\tShow prompts")]
+        SHOWPROMPT,            // default temperature]                                
     }
 
     class Program {
@@ -170,6 +176,9 @@ namespace NaLaPla
             flags.AddRange(TryGetFlag(pieces, FlagType.TEMPMULT, ref runtimeConfiguration.tempMultPerLevel));
             flags.AddRange(TryGetFlag(pieces, FlagType.MAXGPT, ref runtimeConfiguration.maxConcurrentGPTRequests));
             flags.AddRange(TryGetFlag(pieces, FlagType.SUBTASKS, ref runtimeConfiguration.subtaskCount));
+            flags.AddRange(TryGetFlag(pieces, FlagType.SHOWGROUND, ref runtimeConfiguration.showGrounding));                    
+            flags.AddRange(TryGetFlag(pieces, FlagType.USEGROUND, ref runtimeConfiguration.useGrounding));                    
+            flags.AddRange(TryGetFlag(pieces, FlagType.SHOWPROMPT, ref runtimeConfiguration.showPrompts));                    
 
             // Actions
             flags.AddRange(TryGetFlag(pieces, FlagType.LOAD, ref runtimeConfiguration.shouldLoadPlan));
