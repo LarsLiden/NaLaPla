@@ -100,7 +100,11 @@ namespace NaLaPla
         }
 
         public static string PlanToJSON(Plan plan) {
-            var json = Newtonsoft.Json.JsonConvert.SerializeObject(plan);
+            var json = Newtonsoft.Json.JsonConvert.SerializeObject(plan,
+                                                                    new Newtonsoft.Json.JsonSerializerSettings()
+                                                                    {
+                                                                        ReferenceLoopHandling = Newtonsoft.Json.ReferenceLoopHandling.Ignore
+                                                                    });
             return json;
         }        
 

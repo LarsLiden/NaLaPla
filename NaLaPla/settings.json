@@ -1,0 +1,82 @@
+{
+  "RuntimeConfig": [
+    {
+      "configStringToProperty": [
+        {
+          "cmdLine": "DEPTH",
+          "method": "expandDepth",
+          "description": "Plan hierarchy depth"
+        },
+        {
+          "cmdLine": "TEMP",
+          "method": "temperature",
+          "description": "Default temperature"
+        },
+        {
+          "cmdLine": "TEMPMULT",
+          "method": "tempMultPerLevel",
+          "description": "Temperature multiplier per level"
+        },
+        {
+          "cmdLine": "MAXGPT",
+          "method": "maxConcurrentGPTRequests",
+          "description": "Max GPT requests in flight at once"
+        },
+        {
+          "cmdLine": "SUBTASKS",
+          "method": "subtaskCount",
+          "description": "Subtask count to ask for, e.g. 'four'"
+        },
+        {
+          "cmdLine": "SHOWGROUND",
+          "method": "showGrounding",
+          "description": "Show grounding info"
+        },
+        {
+          "cmdLine": "USEGROUND",
+          "method": "useGrounding",
+          "description": "Use grounding info"
+        },
+        {
+          "cmdLine": "SHOWPROMPT",
+          "method": "showPrompts",
+          "description": "Show prompts as they are sent to GPT"
+        },
+        {
+          "cmdLine": "DEFACTOR",
+          "method": "defaultActor",
+          "description": "Default actor to use in prompts"
+        },
+        {
+          "cmdLine": "DEFCONTEXT",
+          "method": "defaultContext",
+          "description": "Default context to use in prompts"
+        },
+        {
+          "cmdLine": "LOAD",
+          "method": "shouldLoadPlan",
+          "description": "Load a previously-used plan"
+        },
+        {
+          "cmdLine": "INDEX",
+          "method": "indexToBuild",
+          "description": "Build an index"
+        }
+      ],
+      "expandDepth": 4,
+      "temperature": 0.4,
+      "tempMultPerLevel": 1.3,
+      "maxConcurrentGPTRequests": 20,
+      "subtaskCount": "two",
+      "showGrounding": true,
+      "useGrounding": false,
+      "showPrompts": true,
+      "defaultActor": "a bank robber",
+      "defaultContext": "in a bank",
+      "shouldLoadPlan": false,
+      "indexToBuild": "",
+      "ExpandMode": 0,
+      "showResults": true
+    }
+  ]
+}

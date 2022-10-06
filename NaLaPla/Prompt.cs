@@ -44,7 +44,7 @@ namespace NaLaPla
                 //text = $"Your task is to {description}. Repeat the list and add {runtimeConfiguration.subtaskCount} subtasks to each of the items.\n\n";
 
                 text = basePlan.ToString();
-                text += $"\nProvide a list of short actions for a computer agent to {plan.description} in MineCraft.\n\n";
+                text += $"\nProvide a list of short actions for {plan.actor} to {plan.description} {plan.context}\n\n";
                 irKey = plan.description;
             }
             else if (plan.subPlanDescriptions.Count > 0 && runtimeConfiguration.ExpandMode == ExpandModeType.AS_A_LIST) {
@@ -53,12 +53,12 @@ namespace NaLaPla
                 prompt += Util.GetNumberedSteps(plan);
                 prompt += "Please specify a bulleted list of the work that needs to be done for each step.";
                 */
-                text  = $"Below are instruction for a computer agent to {description}. Repeat the list and add {runtimeConfiguration.subtaskCount} subtasks to each of the items.\n\n";// in cases where the computer agent could use detail\n\n";
+                text  = $"Below are instruction for {plan.actor} to {description}. Repeat the list and add {runtimeConfiguration.subtaskCount} subtasks to each of the items.\n\n";// in cases where the computer agent could use detail\n\n";
                 text  += numberedSubTasksAsString;
                 irKey = numberedSubTasksAsString;
             }
             else {
-                text  =  $"Your job is to provide instructions for a computer agent to {plan.description}. Please specify a numbered list of {runtimeConfiguration.subtaskCount} brief tasks that needs to be done.";
+                text  =  $"Your job is to provide instructions for {plan.actor} to {plan.description}. Please specify a numbered list of {runtimeConfiguration.subtaskCount} brief tasks that needs to be done.";
                 irKey = plan.description;
             }
             

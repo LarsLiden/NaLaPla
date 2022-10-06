@@ -2,6 +2,7 @@
 namespace NaLaPla
 {
     using Microsoft.Extensions.Configuration;
+    using Microsoft.Extensions.Configuration.Json;
     using OpenAI.GPT3;
     using OpenAI.GPT3.Managers;
     using OpenAI.GPT3.ObjectModels;
@@ -24,24 +25,28 @@ namespace NaLaPla
         DEPTH,          // Overwrite depth
         [Description("-MAXGPT   \t<int>\t\t\tMaximum concurrent requests to GPT")]
         MAXGPT,         // Maximum concurrent GPT requests
-        [Description("-SUBTASKS \t<string>\t\t\tRequest <string> sub-plans")]
+        [Description("-SUBTASKS \t<string>\t\tRequest <string> sub-plans")]
         SUBTASKS,        // default subtasks to ask for
-        [Description("-TEMP     \t<float 0-1>\t\t\tDefault temperature")]
+        [Description("-TEMP     \t<float 0-1>\t\tDefault temperature")]
         TEMP,            // default temperature]
         [Description("-TEMPMULT\t<float>\t\t\tTemperature multipler per level")]
         TEMPMULT,            // default temperature]        
         [Description("-SHOWGROUND\t<bool>\t\t\tShow grounding info")]
         SHOWGROUND,            // default temperature]
-        [Description("-USEGROUND\t<bool>\t\t\tEnable/disable grounding")]
         USEGROUND,            // default temperature]  
         [Description("-SHOWPROMPT\t<bool>\t\t\tShow prompts")]
-        SHOWPROMPT,            // default temperature]                                
+        SHOWPROMPT,            // default temperature]     
+        [Description("-DEFACTOR\t<string>\t\tDefault actor")]
+        DEFACTOR,            // default actor]   
+        [Description("-DEFCONTEXT\t<string>\t\tDefault context")]
+        DEFCONTEXT,            // default temperature]                                              
     }
 
     class Program {
 
         static Plan ?basePlan;
         static int GPTRequestsTotal = 0;
+        static string settingsFile = Path.Combine(Directory.GetCurrentDirectory(), "settings.json");
 
         static RuntimeConfig runtimeConfiguration = new RuntimeConfig(); // For now just has hardcoded defaults
         static SemaphoreSlim GPTSemaphore = new SemaphoreSlim(runtimeConfiguration.maxConcurrentGPTRequests,runtimeConfiguration.maxConcurrentGPTRequests);
@@ -54,18 +59,24 @@ namespace NaLaPla
         {
             var root = Directory.GetCurrentDirectory();
             var dotenv = Path.Combine(root, ".env");
+
             DotEnv.Load(dotenv);
 
             var config =
-                new ConfigurationBuilder()
+                new Microsoft.Extensions.Configuration.ConfigurationBuilder()
                     .AddEnvironmentVariables()
+                    .AddJsonFile(settingsFile, optional:true)
                     .Build();
+
+
+            if (config.GetSection("RuntimeConfig") is not null) {
+                var c = config.GetSection("RuntimeConfig");
+                c.Bind(runtimeConfiguration);
+            }
 
             bool bail = false;
             while (bail == false) {
-                foreach (FlagType flag in Enum.GetValues(typeof(FlagType))) {
-                    Console.WriteLine(Util.GetDescription(flag));
-                }
+                ShowFlags(runtimeConfiguration.configStringToProperty);
                 Util.WriteToConsole($"{runtimeConfiguration.ToString()}", ConsoleColor.Green);
 
                 Console.WriteLine("What do you want to plan?");
@@ -73,7 +84,7 @@ namespace NaLaPla
                 if (String.IsNullOrEmpty(userInput)) {
                     bail = true;
                 } else {
-                    (string planDescription, List<FlagType> flags) = ParseUserInput(userInput);
+                    string planDescription = ParseUserInput(userInput);
 
                     if (runtimeConfiguration.shouldLoadPlan) {
                         Console.WriteLine($"Loading {planDescription}");
@@ -94,12 +105,15 @@ namespace NaLaPla
                     if (!String.IsNullOrEmpty(planDescription)) {
                         basePlan = new Plan() {
                         description = planDescription,
+                        actor = runtimeConfiguration.defaultActor,
+                        context = runtimeConfiguration.defaultContext,
                         planLevel = 0, 
                         subPlans = new List<Plan>()
                         };
                         bail = true;
                     }
                 }
+                runtimeConfiguration.SaveSettings(settingsFile);
             }
             if (basePlan is null) return; // no plan was loaded and text was blank
 
@@ -138,52 +152,29 @@ namespace NaLaPla
             }
         }
         
-        static List<FlagType> TryGetFlag<T>(List<String>flagsAndValues, FlagType targetFlag, ref T targetSetting) {
-            var flags = new List<FlagType>();
-            foreach(string flagAndValue in flagsAndValues) {
-                var flagStrings = flagAndValue.Split(" ");
-                var flagName = flagStrings[0];
-                var flagArg = flagStrings.Count() > 1 ? flagStrings[1] : null;
-                FlagType flag;
-                if (Enum.TryParse<FlagType>(flagName, true, out flag)) {
-                    if (flag == targetFlag) {
-                        if (flagArg is not null) {
-                            T value = (T)Convert.ChangeType(flagArg, typeof(T));
-                            if (value is not null) {
-                                targetSetting = value;
-                            }
-                        } else {
-                            targetSetting = default(T);
-                        }
-                        flags.Add(flag);
-                    }
-                }
+        static void ShowFlags(List<RuntimeConfig.ConfigVariable> flags) {
+            foreach (var flag in flags) {
+                Util.WriteToConsole(
+                    "-" + flag.cmdLine.PadRight(20) + flag.description,
+                    ConsoleColor.Cyan
+                );
             }
-            return flags;
         }
-
-        static (string, List<FlagType>) ParseUserInput(string userInput) {
+        static string ParseUserInput(string userInput) {
 
             var pieces = userInput.Split("-").ToList();
             var planDescription = pieces[0].TrimEnd();
             pieces.RemoveAt(0);
 
             var flags = new List<FlagType>();
+            foreach (var flagAndValue in pieces) {
+                var flagStrings = flagAndValue.Split(" ");
+                var flagName = flagStrings[0];
+                var flagArg = flagStrings.Count() > 1 ? string.Join(" ", flagStrings.Skip(1).Take(999)) : null;                
+                runtimeConfiguration.SetValue(flagName, flagArg);
+            }
 
-            // Settings
-            flags.AddRange(TryGetFlag(pieces, FlagType.DEPTH, ref runtimeConfiguration.expandDepth));
-            flags.AddRange(TryGetFlag(pieces, FlagType.TEMP, ref runtimeConfiguration.temperature));
-            flags.AddRange(TryGetFlag(pieces, FlagType.TEMPMULT, ref runtimeConfiguration.tempMultPerLevel));
-            flags.AddRange(TryGetFlag(pieces, FlagType.MAXGPT, ref runtimeConfiguration.maxConcurrentGPTRequests));
-            flags.AddRange(TryGetFlag(pieces, FlagType.SUBTASKS, ref runtimeConfiguration.subtaskCount));
-            flags.AddRange(TryGetFlag(pieces, FlagType.SHOWGROUND, ref runtimeConfiguration.showGrounding));                    
-            flags.AddRange(TryGetFlag(pieces, FlagType.USEGROUND, ref runtimeConfiguration.useGrounding));                    
-            flags.AddRange(TryGetFlag(pieces, FlagType.SHOWPROMPT, ref runtimeConfiguration.showPrompts));                    
-
-            // Actions
-            flags.AddRange(TryGetFlag(pieces, FlagType.LOAD, ref runtimeConfiguration.shouldLoadPlan));
-            flags.AddRange(TryGetFlag(pieces, FlagType.INDEX, ref runtimeConfiguration.indexToBuild));
-            return (planDescription, flags);
+            return planDescription; 
         }
 
         static async System.Threading.Tasks.Task ExpandPlan(Plan planToExpand) {
@@ -218,6 +209,8 @@ namespace NaLaPla
                 foreach (var subPlanDescription in planToExpand.subPlanDescriptions) {
                     var plan = new Plan() {
                         description = subPlanDescription,
+                        actor = planToExpand.actor,
+                        context = planToExpand.context,
                         planLevel = planToExpand.planLevel + 1,
                         subPlans = new List<Plan>(),
                         parent = planToExpand
@@ -294,9 +287,12 @@ namespace NaLaPla
                 steps.RemoveAt(0);
                 var subPlan = new Plan() {
                         description = description,
+                        actor = plan.actor,
+                        context = plan.context,
                         planLevel = plan.planLevel + 1, 
                         subPlanDescriptions = steps,
-                        subPlans = new List<Plan>()
+                        subPlans = new List<Plan>(),
+                        parent = plan
                     };
                 plan.subPlans.Add(subPlan);
             }

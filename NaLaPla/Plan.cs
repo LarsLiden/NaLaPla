@@ -19,6 +19,8 @@ public enum PlanState {
 
 public class Plan {
         public string description = "";
+        public string actor = "a computer agent";
+        public string context = "in minecraft";
         public int planLevel;    
         public List<string> subPlanDescriptions = new List<string>();    
         public List<Plan> subPlans = new List<Plan>();
