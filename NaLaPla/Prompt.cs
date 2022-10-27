@@ -7,7 +7,7 @@ namespace NaLaPla
 
         public string text = "";
 
-        public List<Response> responses = new List<Response>();
+        public List<string> responses = new List<string>();
 
         public OpenAIConfig OAIConfig = new OpenAIConfig();
 
@@ -43,7 +43,7 @@ namespace NaLaPla
                 //var prompt = $"Please specify one or two steps that needs to be done to {plan.description} when you {basePlan.description}";
                 //text = $"Your task is to {description}. Repeat the list and add {runtimeConfiguration.subtaskCount} subtasks to each of the items.\n\n";
 
-                text = basePlan.ToString();
+                text = "";// Util.PlanToString(basePlan);
                 text += $"\nProvide a list of short actions for a computer agent to {plan.description} in MineCraft.\n\n";
                 irKey = plan.description;
             }
@@ -53,17 +53,17 @@ namespace NaLaPla
                 prompt += Util.GetNumberedSteps(plan);
                 prompt += "Please specify a bulleted list of the work that needs to be done for each step.";
                 */
-                text  = $"Below are instruction for a computer agent to {description}. Repeat the list and add {runtimeConfiguration.subtaskCount} subtasks to each of the items.\n\n";// in cases where the computer agent could use detail\n\n";
+                text  = $"Below are instruction for a computer agent to {description}. Repeat the list and add {runtimeConfiguration.promptSubtaskCount} subtasks to each of the items.\n\n";// in cases where the computer agent could use detail\n\n";
                 text  += numberedSubTasksAsString;
                 irKey = numberedSubTasksAsString;
             }
             else {
-                text  =  $"Your job is to provide instructions for a computer agent to {plan.description}. Please specify a numbered list of {runtimeConfiguration.subtaskCount} brief tasks that needs to be done.";
+                text  =  $"Your job is to provide instructions for a computer agent to {plan.description}. Please specify a numbered list of {runtimeConfiguration.promptSubtaskCount} brief tasks that needs to be done.";
                 irKey = plan.description;
             }
             
-            if (runtimeConfiguration.showPrompts) {
-                Util.WriteToConsole($"\n{this.text}\n", ConsoleColor.Cyan);
+            if (runtimeConfiguration.displayOptions.showPrompts) {
+                Util.WriteLineToConsole($"\n{this.text}\n", ConsoleColor.Cyan);
             }
 
             // Now add grounding 
@@ -71,7 +71,7 @@ namespace NaLaPla
                 var promptSize = Util.NumWordsIn(this.text);
                 var maxGrounds = MAX_PROMPT_SIZE - promptSize;
 
-                var documents = IR.GetRelatedDocuments($"{irKey}", runtimeConfiguration.showGrounding);
+                var documents = IR.GetRelatedDocuments($"{irKey}", runtimeConfiguration.displayOptions.showGrounding);
                 var grounding = "";
                 foreach (var document in documents) {
                     grounding += $"{document}{Environment.NewLine}";

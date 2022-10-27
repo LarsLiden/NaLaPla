@@ -15,17 +15,9 @@ namespace NaLaPla
         }
 
         static Plan MakeTestPlan(List<string> items) {
-            var basePlan = new Plan() {
-                description = "build a log cabin",
-                planLevel = 0, 
-                subPlans = new List<Plan>()
-                };
+            var basePlan = new Plan("build a log cabin", null);
             foreach (var item in items) {
-                var subPlan = new Plan() {
-                description = item,
-                planLevel = 0, 
-                subPlans = new List<Plan>()
-                };
+                var subPlan = new Plan(item, basePlan);
                 basePlan.subPlans.Add(subPlan);
             }
             return basePlan;

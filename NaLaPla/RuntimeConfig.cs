@@ -9,37 +9,45 @@ namespace NaLaPla
         AS_A_LIST    
     }
 
+       public enum BestResponseChooserType
+    {
+        // User picks best response when GPT provides multiple possibilities
+        USER,
+
+        // GPT automaticaly picks best response when GPT provides multiple possibilities
+        GPT    
+    }
+
     public class RuntimeConfig {
 
-        public ExpandModeType ExpandMode = ExpandModeType.ONE_BY_ONE;
+        public ExpandModeType ExpandMode = ExpandModeType.AS_A_LIST;
 
         public int maxConcurrentGPTRequests = 1;
 
-        // whether or not to print each prompt as it is submitted to GPT. Prompts always stored in plan.prompt.
-        public bool showPrompts = true; 
-        
-        // print the parsed result of each request to the console
-        public bool showResults = true; 
-
-        // Show document retrieval when grounding is employed
-        public bool showGrounding = true;
-
         // Should grounding be added to prompts
-        public bool useGrounding = true;
+        public bool useGrounding = false;
 
         public int expandDepth = 2;
         public float temperature = 0.1f;
         public float tempMultPerLevel = 1.0f;
-        public string subtaskCount = "";  // Default to not specifying number of sub-tasks.  Creates less noise
+
+        // Number of subtasks to request in prompt
+        public string promptSubtaskCount = "";  // Default to not specifying number of sub-tasks.  Creates less noise
 
         public bool shouldLoadPlan = false;
 
+        // When GPT provides more than one response, who chooses the best one?
+        public BestResponseChooserType bestResponseChooser = BestResponseChooserType.USER;
+
         public string indexToBuild = "";
 
+        public DisplayOptions displayOptions = new DisplayOptions();
+
         public override string ToString() {
-            var stringified = $"expandDepth = {expandDepth}, subtaskCount = {subtaskCount},"
+            var stringified = $"expandDepth = {expandDepth}, subtaskCount = {promptSubtaskCount},"
             + $" default temperature = {temperature}, temperature multiplier per level = {tempMultPerLevel}, maxConcurrentGPTRequests = {maxConcurrentGPTRequests},"
-            + $" showPrompts = {showPrompts}, showResults = {showResults}, showGrounding = {showGrounding}, useGrounding = {useGrounding}, shouldLoadPlan = {shouldLoadPlan}, indexToBuild = {indexToBuild}";
+            + $" useGrounding = {useGrounding}, shouldLoadPlan = {shouldLoadPlan}, indexToBuild = {indexToBuild},"
+            + $" {displayOptions.ToString()}";
             return stringified;
         }
     }

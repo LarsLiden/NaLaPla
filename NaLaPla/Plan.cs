@@ -21,10 +21,19 @@ public class Plan {
         public string description = "";
         public int planLevel;    
         public List<string> subPlanDescriptions = new List<string>();    
-        public List<Plan> subPlans = new List<Plan>();
+        public List<Plan> subPlans;
         public Plan? parent;
         public PlanState state = PlanState.CREATED;
         public Prompt? prompt;
+
+        public List<string> candidateSubPlans;
+
+        public Plan(string description, Plan parent) {
+            this.description = description;
+            this.planLevel = parent == null ? 0 : parent.planLevel;
+            this.parent = parent;
+            this.subPlans = new List<Plan>();
+        }
 
         // Convert list of plan subtasks into a list
         public string GetNumberedSubTasksAsString() {

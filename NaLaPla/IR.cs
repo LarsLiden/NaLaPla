@@ -24,7 +24,7 @@ namespace NaLaPla
         }
         static public void CreateIndex(IDataProvider dataProvider) {
 
-            Util.WriteToConsole("Generating search index...", ConsoleColor.Green);
+            Util.WriteLineToConsole("Generating search index...", ConsoleColor.Green);
 
             using var dir = FSDirectory.Open(IndexDirectory());
             var analyzer = new StandardAnalyzer(AppLuceneVersion);
@@ -42,7 +42,7 @@ namespace NaLaPla
                     writer.AddDocument(doc);
                     doc = dataProvider.GetNextDocument();
                 }
-                Util.WriteToConsole($"Added {numberDocuments} documents.", ConsoleColor.Green);
+                Util.WriteLineToConsole($"Added {numberDocuments} documents.", ConsoleColor.Green);
                 writer.Flush(triggerMerge: false, applyAllDeletes: false);
             }
             catch
@@ -74,11 +74,11 @@ namespace NaLaPla
 
             // Display the output in a table
             if (showGrounding) {
-                Util.WriteToConsole($"{"Score",10}" + $" {"Topic",-15}", ConsoleColor.DarkBlue);
+                Util.WriteLineToConsole($"{"Score",10}" + $" {"Topic",-15}", ConsoleColor.DarkBlue);
                 foreach (var hit in hits)
                 {
                     var foundDoc = searcher.Doc(hit.Doc);
-                    Util.WriteToConsole($"{hit.Score:f8}" + $" {foundDoc.Get("topic"),-30}", ConsoleColor.DarkCyan);
+                    Util.WriteLineToConsole($"{hit.Score:f8}" + $" {foundDoc.Get("topic"),-30}", ConsoleColor.DarkCyan);
                 }
             }
 

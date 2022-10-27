@@ -13,6 +13,11 @@ namespace NaLaPla
 
         const string SAVE_DIRECTORY = "output";
 
+
+        public static string CleanListString(string listString) {
+            return listString.Replace("\r\n", "\n").Replace("\n\n", "\n").Trim();
+        }
+
         public static List<string> ParseSubPlanList(string itemString) {
 
             // Assume list is like: "1. this 2. that 3. other"
@@ -76,12 +81,19 @@ namespace NaLaPla
             return steps;
         }
 
-        public static void WriteToConsole(string text, ConsoleColor color = ConsoleColor.White) {
+        public static void WriteLineToConsole(string text, ConsoleColor color = ConsoleColor.White) {
             Console.ForegroundColor = color;
             Console.WriteLine(text);
             Console.ForegroundColor = ConsoleColor.White;
         }
 
+        public static void WriteToConsole(string text, ConsoleColor color = ConsoleColor.White) {
+            Console.ForegroundColor = color;
+            Console.Write(text);
+            Console.ForegroundColor = ConsoleColor.White;
+        }
+
+        // Show plan and sub-plans to string
         public static string PlanToString(Plan plan) {
             string planText = $"- {plan.description}{Environment.NewLine}".PadLeft(plan.description.Length + (5*plan.planLevel));
 
@@ -95,6 +107,16 @@ namespace NaLaPla
                     string output = $"- {subPlanDescription}{Environment.NewLine}".PadLeft(subPlanDescription.Length + (5*(plan.planLevel+1)));
                     planText += $"{output}";
                 }
+            }
+            return planText;
+        }
+
+        // Show plan step and parents ABOVE plan
+        public static string ReversePlanToString(Plan plan) {
+            string planText = $"- {plan.description}{Environment.NewLine}".PadLeft(plan.description.Length + (5*plan.planLevel));
+
+            if (plan.parent != null) {
+                planText = $"{ReversePlanToString(plan.parent)}{planText}";
             }
             return planText;
         }
@@ -153,10 +175,10 @@ namespace NaLaPla
         public static void PrintPlanToConsole(Plan plan, RuntimeConfig configuration, string runData="") {
             var planName = GetPlanName(plan);
             var planString = PlanToString(plan);
-            Util.WriteToConsole(planName, ConsoleColor.Green);
-            Util.WriteToConsole(configuration.ToString(), ConsoleColor.Green);
-            Util.WriteToConsole(runData, ConsoleColor.Green);
-            Util.WriteToConsole(planString, ConsoleColor.White);
+            Util.WriteLineToConsole(planName, ConsoleColor.Green);
+            Util.WriteLineToConsole(configuration.ToString(), ConsoleColor.Green);
+            Util.WriteLineToConsole(runData, ConsoleColor.Green);
+            Util.WriteLineToConsole(planString, ConsoleColor.White);
         }
 
         public static String SavePlanAsText(Plan plan, RuntimeConfig configuration, string runData) {
@@ -204,12 +226,12 @@ namespace NaLaPla
 
         public static void DisplayProgress(Plan? basePlan, RuntimeConfig configuration, SemaphoreSlim GPTSemaphore, bool detailed = false) {
             if (basePlan is null) return;
-            WriteToConsole($"\n\nProgress ({configuration.maxConcurrentGPTRequests - GPTSemaphore.CurrentCount} GPT requests in flight):",ConsoleColor.Blue);
+            WriteLineToConsole($"\n\nProgress ({configuration.maxConcurrentGPTRequests - GPTSemaphore.CurrentCount} GPT requests in flight):",ConsoleColor.Blue);
             var all = AllChildren(basePlan);
             foreach (var t in all) {
                 var display = $"- {t.description} ({GetDescription(t.state)}) ";
                 var status = display.PadLeft(display.Length + (5*t.planLevel));
-                WriteToConsole(status, ConsoleColor.White);
+                WriteLineToConsole(status, ConsoleColor.White);
             }
         }
 

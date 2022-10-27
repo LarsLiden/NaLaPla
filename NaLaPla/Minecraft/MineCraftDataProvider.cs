@@ -45,10 +45,10 @@ namespace NaLaPla
             var dirNames = new Stack<string>(System.IO.Directory.GetDirectories(DataPath, "images", SearchOption.AllDirectories));
             foreach (var dirName in dirNames) {
                 System.IO.Directory.Delete(dirName, true);
-                Util.WriteToConsole($"Deleting: {dirName}", ConsoleColor.DarkGreen);
+                Util.WriteLineToConsole($"Deleting: {dirName}", ConsoleColor.DarkGreen);
 
             }
-            Util.WriteToConsole($"Deleted {dirNames.Count} directories", ConsoleColor.Green );
+            Util.WriteLineToConsole($"Deleted {dirNames.Count} directories", ConsoleColor.Green );
         }
 
         public static void UtilCopyOnlyJSONFiles(string sourceDir, string destDir) {
@@ -81,7 +81,7 @@ namespace NaLaPla
             get {
                 if (_DataFiles == null) {
                     _DataFiles = new Stack<string>(System.IO.Directory.GetFiles(DataPath, "data.json", SearchOption.AllDirectories));
-                    Util.WriteToConsole($"{_DataFiles.Count()} Documents Found", ConsoleColor.Green);
+                    Util.WriteLineToConsole($"{_DataFiles.Count()} Documents Found", ConsoleColor.Green);
                 }
                 return _DataFiles;
             }
@@ -133,7 +133,7 @@ namespace NaLaPla
                 if (wikiRecord.metadata.hasBeenAugmented) {
                     return;
                 }
-                Util.WriteToConsole($"Augmenting Data: {wikiRecord.Title}", ConsoleColor.Gray);
+                Util.WriteLineToConsole($"Augmenting Data: {wikiRecord.Title}", ConsoleColor.Gray);
                 var web = new HtmlWeb();
                 var doc = web.Load(wikiRecord.metadata.url);
                 
@@ -151,7 +151,7 @@ namespace NaLaPla
                 writer.Close();
             }
             catch (Exception e) {
-                Util.WriteToConsole($"Augmentation error {e.ToString()}");
+                Util.WriteLineToConsole($"Augmentation error {e.ToString()}");
                 throw e;
             }
         }
@@ -173,7 +173,7 @@ namespace NaLaPla
                 }
                 var subTexts = CurWikiRecord.texts.Select(t => t.text);
                 SubSections = GenerateDocumentSections(CurWikiRecord);
-                Util.WriteToConsole($"Adding: {CurWikiRecord.Title, -30} with {SubSections.Count, -10} items ({DataFiles.Count()} remaining)", ConsoleColor.DarkGreen);
+                Util.WriteLineToConsole($"Adding: {CurWikiRecord.Title, -30} with {SubSections.Count, -10} items ({DataFiles.Count()} remaining)", ConsoleColor.DarkGreen);
                 return NextDocumentSection();
             } 
             var nextDocument = SubSections.Dequeue();    
