@@ -1,5 +1,16 @@
 namespace NaLaPla
 {      
+    public enum PromptType
+    {
+        // First prompt for base plan
+        FIRSTPLAN,
+
+        // Prompt based on adding subtasks to current task description
+        TASK,
+
+        // Prompt based on adding subtasks for each task description in a list
+        TASKLIST
+    }
 
     public class Prompt {
 
@@ -29,56 +40,60 @@ namespace NaLaPla
 
     public class ExpandPrompt : Prompt {
 
-        public ExpandPrompt(Plan basePlan, Plan plan, RuntimeConfig runtimeConfiguration) {
+        private static string MakeBasePrompt(Plan basePlan, Plan plan, PromptType promptType, bool useGrounding, string requestNumberOfSubtasks, bool displayGrounding) {
 
-            string numberedSubTasksAsString = "";
-            string irKey = "";
-            if (plan.subPlanDescriptions.Count > 0) {
-                numberedSubTasksAsString = plan.GetNumberedSubTasksAsString();
-            }
-            var description = (basePlan is null || basePlan.description is null) ? "fire your lead developer" : basePlan.description;
-            if (plan.planLevel > 0  && runtimeConfiguration.ExpandMode == ExpandModeType.ONE_BY_ONE) {
-                // var prompt =  $"Your job is to {plan.parent.description}. Your current task is to {plan.description}. Please specify a numbered list of the work that needs to be done.";
-                //var prompt = $"Please specify a numbered list of the work that needs to be done to {plan.description} when you {basePlan.description}";
-                //var prompt = $"Please specify one or two steps that needs to be done to {plan.description} when you {basePlan.description}";
-                //text = $"Your task is to {description}. Repeat the list and add {runtimeConfiguration.subtaskCount} subtasks to each of the items.\n\n";
+            var promptText = "";
+            var irKey = "";
+            switch (promptType) {
+                case PromptType.FIRSTPLAN:
+                    promptText  =  $"Your job is to provide instructions for a computer agent to {plan.description}. Please specify a numbered list of {requestNumberOfSubtasks} brief tasks that needs to be done.";
+                    irKey = plan.description;
+                    break;
+                case PromptType.TASK:
+                    // Other experimental versions
+                    // var prompt =  $"Your job is to {plan.parent.description}. Your current task is to {plan.description}. Please specify a numbered list of the work that needs to be done.";
+                    //var prompt = $"Please specify a numbered list of the work that needs to be done to {plan.description} when you {basePlan.description}";
+                    //var prompt = $"Please specify one or two steps that needs to be done to {plan.description} when you {basePlan.description}";
+                    //text = $"Your task is to {description}. Repeat the list and add {runtimeConfiguration.subtaskCount} subtasks to each of the items.\n\n";
 
-                text = "";// Util.PlanToString(basePlan);
-                text += $"\nProvide a list of short actions for a computer agent to {plan.description} in MineCraft.\n\n";
-                irKey = plan.description;
-            }
-            else if (plan.subPlanDescriptions.Count > 0 && runtimeConfiguration.ExpandMode == ExpandModeType.AS_A_LIST) {
-                /*
-                var prompt =  $"Your job is to {plan.description}. You have identified the following steps:\n";
-                prompt += Util.GetNumberedSteps(plan);
-                prompt += "Please specify a bulleted list of the work that needs to be done for each step.";
-                */
-                text  = $"Below are instruction for a computer agent to {description}. Repeat the list and add {runtimeConfiguration.promptSubtaskCount} subtasks to each of the items.\n\n";// in cases where the computer agent could use detail\n\n";
-                text  += numberedSubTasksAsString;
-                irKey = numberedSubTasksAsString;
-            }
-            else {
-                text  =  $"Your job is to provide instructions for a computer agent to {plan.description}. Please specify a numbered list of {runtimeConfiguration.promptSubtaskCount} brief tasks that needs to be done.";
-                irKey = plan.description;
-            }
-            
-            if (runtimeConfiguration.displayOptions.showPrompts) {
-                Util.WriteLineToConsole($"\n{this.text}\n", ConsoleColor.Cyan);
+                    promptText = "";// Util.PlanToString(basePlan);
+                    promptText += $"\nProvide a list of short actions for a computer agent to {plan.description} in MineCraft.\n\n";
+                    irKey = plan.description;
+                    break;
+                case PromptType.TASKLIST:
+                    /* Other experimental version
+                    var prompt =  $"Your job is to {plan.description}. You have identified the following steps:\n";
+                    prompt += Util.GetNumberedSteps(plan);
+                    prompt += "Please specify a bulleted list of the work that needs to be done for each step.";
+                    */
+                    var description = (basePlan is null || basePlan.description is null) ? "fire your lead developer" : basePlan.description;
+                    var numberedSubTasksAsString = plan.SubPlanDescriptions();
+    
+                    promptText  = $"Below are instruction for a computer agent to {description}. Repeat the list and add {requestNumberOfSubtasks} subtasks to each of the items.\n\n";// in cases where the computer agent could use detail\n\n";
+                    promptText  += numberedSubTasksAsString;
+                    irKey = numberedSubTasksAsString;
+                    break;
             }
 
             // Now add grounding 
-            if (runtimeConfiguration.useGrounding) {
-                var promptSize = Util.NumWordsIn(this.text);
+            if (useGrounding) {
+                var promptSize = Util.NumWordsIn(promptText);
                 var maxGrounds = MAX_PROMPT_SIZE - promptSize;
 
-                var documents = IR.GetRelatedDocuments($"{irKey}", runtimeConfiguration.displayOptions.showGrounding);
+                var documents = IR.GetRelatedDocuments($"{irKey}", displayGrounding);
                 var grounding = "";
                 foreach (var document in documents) {
                     grounding += $"{document}{Environment.NewLine}";
                 }
                 grounding = Util.LimitWordCountTo(grounding, maxGrounds);
-                text = $"{grounding}{Environment.NewLine}{this.text}";
+                promptText = $"{grounding}{Environment.NewLine}{promptText}";
             }
+            return promptText;
+        }
+
+        public ExpandPrompt(Plan basePlan, Plan plan, PromptType promptType, bool useGrounding, string requestNumberOfSubtasks, bool displayGrounding) 
+        {
+            text = MakeBasePrompt(basePlan, plan, promptType, useGrounding, requestNumberOfSubtasks, displayGrounding);
         }   
     }
 }

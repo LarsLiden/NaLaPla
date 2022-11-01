@@ -72,15 +72,6 @@ namespace NaLaPla
             return Regex.Replace(bulletText, @" [a-zA-Z]\.", "-");
         }
 
-        public static string GetNumberedSteps(Plan plan) {
-
-            var steps = "";
-            for (int i = 0; i < plan.subPlanDescriptions.Count; i++) {
-                steps += $"{i+1}. {plan.subPlanDescriptions[i]}\n";
-            }
-            return steps;
-        }
-
         public static void WriteLineToConsole(string text, ConsoleColor color = ConsoleColor.White) {
             Console.ForegroundColor = color;
             Console.WriteLine(text);
@@ -93,19 +84,17 @@ namespace NaLaPla
             Console.ForegroundColor = ConsoleColor.White;
         }
 
+        public static string IndentText(string text, int amount) {
+            return $"{text}".PadLeft(text.Length + (2*amount));
+
+        }
         // Show plan and sub-plans to string
         public static string PlanToString(Plan plan) {
-            string planText = $"- {plan.description}{Environment.NewLine}".PadLeft(plan.description.Length + (5*plan.planLevel));
+            string planText = IndentText($"- {plan.description}", plan.planLevel);
 
             if (plan.subPlans.Any()) {
                 foreach (var subPlan in plan.subPlans) {
                     planText += PlanToString(subPlan);
-                }
-            }
-            else {
-                foreach (var subPlanDescription in plan.subPlanDescriptions) {
-                    string output = $"- {subPlanDescription}{Environment.NewLine}".PadLeft(subPlanDescription.Length + (5*(plan.planLevel+1)));
-                    planText += $"{output}";
                 }
             }
             return planText;
@@ -113,7 +102,7 @@ namespace NaLaPla
 
         // Show plan step and parents ABOVE plan
         public static string ReversePlanToString(Plan plan) {
-            string planText = $"- {plan.description}{Environment.NewLine}".PadLeft(plan.description.Length + (5*plan.planLevel));
+            string planText = IndentText($"- {plan.description}", plan.planLevel)+"\n";
 
             if (plan.parent != null) {
                 planText = $"{ReversePlanToString(plan.parent)}{planText}";
@@ -121,17 +110,28 @@ namespace NaLaPla
             return planText;
         }
 
+        // Returns plan description for next peer in list
+        public static string RemainingPlanToString(Plan plan) 
+        {
+            var response = "";
+            var curPlan = plan;
+            var planParent = plan.parent;
+            while (planParent != null)
+            {
+                var index = planParent.subPlans.IndexOf(curPlan)+1;
+                for (int i = index; i<planParent.subPlans.Count;i++) {
+                    response += IndentText($"- {planParent.subPlans.ElementAt(i).description}", planParent.planLevel+1)+"\n";
+                }
+                curPlan = planParent;
+                planParent = planParent.parent;
+            }
+            return response;
+        }
+
         public static string PlanToJSON(Plan plan) {
             var json = Newtonsoft.Json.JsonConvert.SerializeObject(plan);
             return json;
         }        
-
-        public static string LoadString(string planDescription) {
-            var planName = GetSaveName(planDescription, TEXT_FILE_EXTENSION);    
-            var fileName = $"{planName}.{TEXT_FILE_EXTENSION}";
-            var planString = File.ReadAllText($"{SAVE_DIRECTORY}/{fileName}");
-            return planString;
-        }
 
         public static Plan LoadPlan(string planName) {  
             var fileName = $"{planName}.{PLAN_FILE_EXTENSION}";
@@ -203,6 +203,15 @@ namespace NaLaPla
             var writer = new StreamWriter($"{SAVE_DIRECTORY}/{fileName}.{extension}");
             writer.Write(text);
             writer.Close();
+        }
+
+        public static string LoadText(string filename, string extension = TEXT_FILE_EXTENSION) {
+            var fileName = $"{SAVE_DIRECTORY}/{filename}.{TEXT_FILE_EXTENSION}";
+            if (File.Exists(fileName)) {
+                var text = File.ReadAllText(fileName);
+                return text;
+            }
+            return "";
         }
 
         static IEnumerable<T> DepthFirstTreeTraversal<T>(T root, Func<T, IEnumerable<T>> children)      
@@ -287,7 +296,7 @@ namespace NaLaPla
         }
 
         static public string LimitWordCountTo(string text, int number) {
-             return text.Split(' ').Take(number).Aggregate((a, b) => a + " " + b); 
+            return text.Split(' ').Take(number).Aggregate((a, b) => a + " " + b); 
         }
     }
 }

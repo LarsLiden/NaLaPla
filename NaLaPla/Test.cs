@@ -22,7 +22,7 @@ namespace NaLaPla
             }
             return basePlan;
         }
-
+/*
         public static void TestParseMultiList() {
 
             var parse1 = "\n\n1. Cut logs to size - use a saw to cut the logs to the desired length\n2. Notch logs for connecting - use a saw to cut notches into the ends of the logs that will fit together\n3. Connect logs at the corners - use nails or screws to attach the logs at the corners\n4. Fill in gaps between logs with chinking - use a chinking material to fill in the gaps between the logs\n5. Add a roof - use roofing material to cover the top of the cabin";
@@ -41,6 +41,6 @@ namespace NaLaPla
                 };
             var plan2 = MakeTestPlan(plan2Items);
             Program.UpdatePlan(plan2, parse2);
-        }
+        }*/
     }
 }
