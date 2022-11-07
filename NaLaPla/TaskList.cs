@@ -6,10 +6,16 @@ namespace NaLaPla
         // Was this task list loaded from the cache
         public bool fromCache = false;
 
+        // Don't expand this description any further
+        public bool doNotExpand = false;
+
         // Number of times this task list was selected as the best
         public int bestCount = 0;
 
-        // For JSON deserialization need plain contructor
+        // Reason this task list was chosen (or not)
+        public string reason = "";
+
+        // For JSON deserialization need plain constructor
         public TaskList() { }
 
         public TaskList(string sourceString) {
@@ -23,13 +29,22 @@ namespace NaLaPla
         }
 
         public override string ToString() {
+            return ToString(false);
+        }
+
+        public string ToString(bool numericIndex) {
+
+            if (doNotExpand) {
+                return "<DON'T EXPAND>";
+            }
             var output = "";
             for (int i = 0; i < taskDescriptions.Count; i++) {
-                output += $"{i+1}. {taskDescriptions.ElementAt(i)}\n";
+                var indexstring = numericIndex ? $"{i+1}" : "";
+                output += $"{indexstring}. {taskDescriptions.ElementAt(i)}\n";
             }
             return output;
         }
-
+        
         public static TaskList Find(TaskList taskList, List<TaskList> taskLists) {
             foreach (var testList in taskLists) {
                 if (Equal(testList, taskList)) {
@@ -39,16 +54,20 @@ namespace NaLaPla
             return null;
         }
 
+        // Equality is based on the task descriptions
         public static bool Equal(TaskList list1, TaskList list2) {
             if (list1.taskDescriptions.Count != list2.taskDescriptions.Count) {
+                return false;
+            }
+            if (list1.doNotExpand != list2.doNotExpand) {
+                return false;
+            }
+            for (int i=0;i<list1.taskDescriptions.Count;i++) {
+                if (!string.Equals(list1.taskDescriptions.ElementAt(i), list2.taskDescriptions.ElementAt(i), StringComparison.CurrentCultureIgnoreCase)) {
                     return false;
                 }
-                for (int i=0;i<list1.taskDescriptions.Count;i++) {
-                    if (!string.Equals(list1.taskDescriptions.ElementAt(i), list2.taskDescriptions.ElementAt(i), StringComparison.CurrentCultureIgnoreCase)) {
-                        return false;
-                    }
-                }
-                return true;
+            }
+            return true;
         }
 
         public static List<TaskList> RemoveDuplicates(List<TaskList> taskLists) {
@@ -59,7 +78,6 @@ namespace NaLaPla
                 foreach (var test in cleanTaskList) {
                     if (Equal(test, taskList)) {
                         foundMatch = test;
-                        Equal(test, taskList);  // TODO temp
                     }
                 }
                 if (foundMatch == null) {

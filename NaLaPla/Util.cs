@@ -1,6 +1,5 @@
 namespace NaLaPla
 {
-    using System.Net;
     using System;
     using System.IO;
     using System.Text.RegularExpressions;
@@ -89,8 +88,9 @@ namespace NaLaPla
 
         }
         // Show plan and sub-plans to string
-        public static string PlanToString(Plan plan) {
-            string planText = IndentText($"- {plan.description}", plan.planLevel);
+        public static string PlanToString(Plan plan, bool showExpansionState = false) {
+            var expansionStateString = showExpansionState ? $"{EnumToDescription(plan.state)}" : "";
+            string planText = IndentText($"- {plan.description} ({expansionStateString})\n", plan.planLevel);
 
             if (plan.subPlans.Any()) {
                 foreach (var subPlan in plan.subPlans) {
@@ -181,7 +181,7 @@ namespace NaLaPla
             Util.WriteLineToConsole(planString, ConsoleColor.White);
         }
 
-        public static String SavePlanAsText(Plan plan, RuntimeConfig configuration, string runData) {
+        public static String SavePlanAsText(Plan plan, RuntimeConfig configuration, string runData = "") {
             var saveName = GetSaveName(plan, TEXT_FILE_EXTENSION);
             var planString = $"{configuration.ToString()}\n{runData}\n\n";
             planString += PlanToString(plan);
@@ -214,37 +214,13 @@ namespace NaLaPla
             return "";
         }
 
-        static IEnumerable<T> DepthFirstTreeTraversal<T>(T root, Func<T, IEnumerable<T>> children)      
-        {
-            var stack = new Stack<T>();
-            stack.Push(root);
-            while(stack.Count != 0)
-            {
-                var current = stack.Pop();
-                // If you don't care about maintaining child order then remove the Reverse.
-                foreach(var child in children(current).Reverse())
-                    stack.Push(child);
-                yield return current;
-            }
-        }
-
-        static List<Plan> AllChildren(Plan start)
-        {
-            return DepthFirstTreeTraversal(start, c=>c.subPlans).ToList();
-        }
-
         public static void DisplayProgress(Plan? basePlan, RuntimeConfig configuration, SemaphoreSlim GPTSemaphore, bool detailed = false) {
             if (basePlan is null) return;
             WriteLineToConsole($"\n\nProgress ({configuration.maxConcurrentGPTRequests - GPTSemaphore.CurrentCount} GPT requests in flight):",ConsoleColor.Blue);
-            var all = AllChildren(basePlan);
-            foreach (var t in all) {
-                var display = $"- {t.description} ({GetDescription(t.state)}) ";
-                var status = display.PadLeft(display.Length + (5*t.planLevel));
-                WriteLineToConsole(status, ConsoleColor.White);
-            }
+            WriteLineToConsole(PlanToString(basePlan, showExpansionState: true), ConsoleColor.Cyan);
         }
 
-        public static string GetDescription<T>(this T enumerationValue)
+        public static string EnumToDescription<T>(this T enumerationValue)
             where T : struct
         {
             Type type = enumerationValue.GetType();
@@ -297,6 +273,93 @@ namespace NaLaPla
 
         static public string LimitWordCountTo(string text, int number) {
             return text.Split(' ').Take(number).Aggregate((a, b) => a + " " + b); 
+        }
+
+        static public string GetUserInput(string userPrompt = "") {
+            if (userPrompt != "") {
+                WriteLineToConsole(userPrompt);
+            }
+            Util.WriteToConsole("> ");
+            var userInput = Console.ReadLine();
+            return userInput;
+        }
+
+        // Show task above and below where looking for expansion
+        /*
+            - build a house in MineCraft
+            - build a foundation for the house
+                - place flocks for the foundation
+                    <SELECT BEST OPTION HERE>
+                - fill in the foundation
+            - build wall for the house
+            - build a roof for the house
+            - decorate the house
+        */
+        static public string MakeTaskPrompt(Plan plan, string optionPrompt) {
+            var taskPrompt = Util.ReversePlanToString(plan);
+            taskPrompt+= Util.IndentText($"  {optionPrompt}\n", plan.planLevel + 1);
+            taskPrompt += Util.RemainingPlanToString(plan);
+            return taskPrompt;
+        }
+
+        // Convert 1-based text index into 0-based integer index
+        static public int StringToIndex(string text, int maxIndex) {
+            int index = 0;
+            if (!int.TryParse(text, out index) || index < 1 || index > maxIndex) {
+                return -1;  
+            }
+            else {
+                // text is 1-indexed, but list is 0-indexed
+                return index-1;
+            }
+        }
+
+        // Assume response is of the format:
+        /*
+        <OPTION 7>
+        <EXPLAIN YOUR REASONING>
+        <OPTION 1> is BAD because Is too specific
+        <OPTION 2> is BAD because Is too specific
+        <OPTION 3> is BAD because Is too specific
+        <OPTION 4> is GOOD because Is specific enough
+        */
+        static public int ParseAndSetReasoningResponse(string text, List<TaskList> candidateSubTasks) {
+            var lines = text.Split('\n');
+
+            // Get best index
+            var optionLine = lines[0];
+            var bestOption = GetOptionNumber(optionLine, candidateSubTasks.Count);
+
+            // Get index of line that that matches REASONING_PROMPT
+            var reasoningLine = Array.IndexOf(lines, BestTaskListExamples.REASONING_PROMPT);
+            if (reasoningLine == -1) {
+                 // TODO: do something here
+                return -1;
+            }
+
+            // Skip to reasoning lines
+            lines = lines.Skip(reasoningLine+1).ToArray();
+
+            // Extract reasoning and assign to task
+            for (int i=0; i < lines.Count(); i++) {
+                var optionIndex = GetOptionNumber(lines[i], candidateSubTasks.Count);
+                var taskList = candidateSubTasks[optionIndex];
+                taskList.reason = lines[i].Split('>')[1].Trim();
+
+                // TODO: Parse/set sentiment
+            }
+
+            return bestOption;
+        }
+
+        // Extract number (n) from option texts of the for "<OPTION n>"
+        static public int GetOptionNumber(string text, int maxIndex) {
+            var regex = new Regex(@"<OPTION (\d+)>", RegexOptions.IgnoreCase);
+            var match = regex.Match(text);
+            if (match.Success) {
+                return StringToIndex(match.Groups[1].Value, maxIndex);
+            }
+            return -1;
         }
     }
 }

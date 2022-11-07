@@ -1,0 +1,20 @@
+Below are instruction for a computer agent to drive a car to the store. Repeat the list and insert bulleted subtasks under each of the numbered items.
+
+START LIST
+1. Get in the car
+2. Start the car
+3. Drive to the store
+END LIST
+
+1. Get in the car
+- unlock the car door
+- open the car door
+- get in the car
+2. Start the car
+- put the keys in the ignition
+- turn the keys
+- put the car into drive
+3. Drive to the store
+- find directions to the store
+- following the directions
+

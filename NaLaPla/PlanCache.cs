@@ -19,6 +19,12 @@ namespace NaLaPla
             }
         }
 
+        public static void AddNoExpandTaskList(string description) {
+            var taskList = new TaskList();
+            taskList.doNotExpand = true;
+            AddTaskList(description, taskList);
+        }
+
         public static void AddTaskList(string description, TaskList taskList) {
 
             // Find existing item

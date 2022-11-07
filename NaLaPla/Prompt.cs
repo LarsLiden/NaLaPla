@@ -22,11 +22,9 @@ namespace NaLaPla
 
         public OpenAIConfig OAIConfig = new OpenAIConfig();
 
-        public Prompt(string text,RuntimeConfig? configuration) {
+        public Prompt(string text, OpenAIConfig openAIConfig) {
             this.text = text;
-            if (configuration is not null) {
-                this.OAIConfig.Temperature = configuration.temperature;
-            }
+            this.OAIConfig = openAIConfig;
         }
 
         public Prompt() {
@@ -40,13 +38,27 @@ namespace NaLaPla
 
     public class ExpandPrompt : Prompt {
 
+        private static string _oneshot;
+
+        private static string oneShot {
+            get {
+                if (_oneshot == null) {
+                    var promptFileName = Path.Combine(Environment.CurrentDirectory, "OneShotExpandPrompt.txt");
+                    _oneshot = File.ReadAllText(promptFileName);
+                }
+                return _oneshot;
+            }
+        }
+
         private static string MakeBasePrompt(Plan basePlan, Plan plan, PromptType promptType, bool useGrounding, string requestNumberOfSubtasks, bool displayGrounding) {
 
             var promptText = "";
             var irKey = "";
             switch (promptType) {
                 case PromptType.FIRSTPLAN:
-                    promptText  =  $"Your job is to provide instructions for a computer agent to {plan.description}. Please specify a numbered list of {requestNumberOfSubtasks} brief tasks that needs to be done.";
+
+                    
+                    promptText  +=  $"Your job is to provide instructions for a computer agent to {plan.description}. Please specify a numbered list of {requestNumberOfSubtasks} brief tasks that needs to be done.";
                     irKey = plan.description;
                     break;
                 case PromptType.TASK:
@@ -66,10 +78,11 @@ namespace NaLaPla
                     prompt += Util.GetNumberedSteps(plan);
                     prompt += "Please specify a bulleted list of the work that needs to be done for each step.";
                     */
+                    promptText = String.Copy(oneShot);
                     var description = (basePlan is null || basePlan.description is null) ? "fire your lead developer" : basePlan.description;
                     var numberedSubTasksAsString = plan.SubPlanDescriptions();
     
-                    promptText  = $"Below are instruction for a computer agent to {description}. Repeat the list and add {requestNumberOfSubtasks} subtasks to each of the items.\n\n";// in cases where the computer agent could use detail\n\n";
+                    promptText  += $"Below are instruction for a computer agent to {description}. Repeat the list and insert {requestNumberOfSubtasks} bulleted subtasks under each of the numbered items.\n\n";// in cases where the computer agent could use detail\n\n";
                     promptText  += numberedSubTasksAsString;
                     irKey = numberedSubTasksAsString;
                     break;
