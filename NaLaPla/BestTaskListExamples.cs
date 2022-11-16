@@ -1,5 +1,8 @@
 namespace NaLaPla
 {
+    using System.Runtime.InteropServices;
+    using Newtonsoft.Json;
+
     // An list of plans and the selected best TaskList which can be used for prompting
     // for selection of the best task list
     public class BestTaskListExamples {
@@ -8,7 +11,9 @@ namespace NaLaPla
 
         public const string REASONING_PROMPT = "<EXPLAIN THE REASONING FOR WHY EACH OPTION IS GOOD OR BAD>";
 
-        private static List<SamplePlan> _samplePlans = null;
+        public const string WHICH_PROMPT = "<WHICH OPTION IS BEST HERE>";
+
+        private static List<SamplePlan>? _samplePlans;
 
         private static List<SamplePlan> samplePlans {
             get {
@@ -19,36 +24,34 @@ namespace NaLaPla
             }
         }
 
+
         public static void CreateSamplePlan(Plan plan) {
-            var testIndex = Util.GetUserInput("Enter best Option number:");
-            var bestIndex = Util.StringToIndex(testIndex, plan.candidateSubTasks.Count);
 
-            for (int i=0;i<plan.candidateSubTasks.Count;i++) {
-                var taskList = plan.candidateSubTasks.ElementAt(i);
+            Util.WriteToConsole("Specify the order of Options from best to worst (i.e. '1 3 2')");
+            var orderText = Util.GetUserInput();
+            var splitText = orderText.Split(" ");
+            var order = splitText.Select(n => Util.StringToIndex(n, plan.candidateSubTasks.Count)).ToList();
+    
+            for (int rank = 0; rank < order.Count; rank++) {
+                var index = order[rank];
+                var taskList = plan.candidateSubTasks[index];
+                taskList.ranking = rank;
 
-                Util.WriteToConsole($"Specify a reason <OPTION {i+1}> is ");
-                if (i == bestIndex) {
-                    Util.WriteLineToConsole("GOOD", ConsoleColor.Green);    
-                }
-                else {
-                    Util.WriteLineToConsole("BAD", ConsoleColor.Red);    
-                }
-                taskList.reason = Util.GetUserInput();
+                var taskListIndex = plan.candidateSubTasks.IndexOf(taskList);
+                taskList.reason = Util.GetUserInput($"<Option {taskListIndex+1}> the {IndexToString(rank)}best option because:");
             }
-            AddSamplePlan(plan, bestIndex);
+            AddSamplePlan(plan);
         }
 
-        private static void AddSamplePlan(Plan plan, int bestIndex) {
+        private static void AddSamplePlan(Plan plan) {
 
             // Find existing item
             var samplePlan = samplePlans.FirstOrDefault(p => p.plan.description == plan.description);
             if (samplePlan == null) {
-                samplePlan = new SamplePlan(plan, bestIndex);
+                samplePlan = new SamplePlan(plan);
                 samplePlans.Add(samplePlan);
             }
-            else {
-                samplePlan.bestTaskListIndex = bestIndex;
-            }
+
             SaveSamplePlans();
         }
 
@@ -72,30 +75,59 @@ namespace NaLaPla
             return prompt;
         }
 
-        static private string MakePlanPrompt(Plan plan) {
+        static private string MakePlanPrompt(Plan plan, [Optional] SamplePlan samplePlan) {
             var prompt = "";
             prompt += MakeBestResponsePrompt(plan);
             prompt += "<QUESTION>\n";
+            prompt += "Rank the OPTIONS to insert into the plan from best to worst and provide your reasoning\n";
+            prompt += "<PLAN>\n";
+            // Sample plans cache the plan prompts as they don't store the full plan
+            if (samplePlan != null) {
+                if (RuntimeConfig.settings.bestTaskPrompt == BestTaskPromptType.PARTIAL) {
+                    prompt += samplePlan.partialPlanPrompt;
+                }
+                else {
+                    prompt += samplePlan.fullPlanPrompt;
+                }
+            }
+            // Otherwise we can generate the plan prompt from the plan
+            else {
+                prompt += Util.MakeTaskPrompt(plan, WHICH_PROMPT);
+            }
+            
+            /*
             prompt += "Select the best OPTION to insert into the plan below:\n";
             prompt += Util.MakeTaskPrompt(plan, "<WHICH OPTION IS BEST HERE>");
-
+            */  
             prompt+= "<ANSWER>\n";
             return prompt;
         }
 
-        static private string MakeSamplePlanPrompt(SamplePlan samplePlan) {
-            var prompt = MakePlanPrompt(samplePlan.plan);
+        static private string IndexToString(int i) {
+            if (i == 0) {
+                return "";
+            }
+            else if (i == 1) {
+                return "second ";
+            }
+            else if (i == 2) {
+                return "third ";
+            }
+            else {
+                return $"{i+1}th ";
+            }
+        }
 
-            prompt+= $"<OPTION {samplePlan.bestTaskListIndex+1}>\n";
-            prompt+= samplePlan.plan.candidateSubTasks.ElementAt(samplePlan.bestTaskListIndex).ToString();
-            
-            // Add reasoning
-            prompt += $"{REASONING_PROMPT}\n";
-            for (int i=0; i<samplePlan.plan.candidateSubTasks.Count; i++) {
-                var status = i == samplePlan.bestTaskListIndex ? "GOOD" : "BAD";
-                prompt += $"<OPTION {i+1}> is {status} because ";
-                var taskList = samplePlan.plan.candidateSubTasks[i];
-                prompt += $"{taskList.reason}\n";
+        static private string MakeSamplePlanPrompt(SamplePlan samplePlan) {
+            var prompt = MakePlanPrompt(samplePlan.plan, samplePlan);
+
+            for (int i=0;i<samplePlan.plan.candidateSubTasks.Count; i++) {
+                var taskList = samplePlan.plan.candidateSubTasks.FirstOrDefault(t => t.ranking == i);
+                if (taskList == null) {
+                    throw new Exception("No task list found for ranking");
+                }
+                var taskIndex = samplePlan.plan.candidateSubTasks.IndexOf(taskList);
+                prompt += $"<OPTION {taskIndex+1}> the {IndexToString(i)}best option {taskList.reason}\n";
             }
             return prompt;
         }
@@ -114,30 +146,16 @@ namespace NaLaPla
         }
 
         private static List<SamplePlan> LoadSamplePlans() {
-            var samplesString = Util.LoadText(SAMPLE_FILENAME);
-            if (String.IsNullOrEmpty(samplesString)) {
+            var samplesString = Util.LoadText(SAMPLE_FILENAME, "json");
+            if (samplesString == null || String.IsNullOrEmpty(samplesString)) {
                 return new List<SamplePlan>();
             }   
-            return Newtonsoft.Json.JsonConvert.DeserializeObject<List<SamplePlan>>(samplesString);
+            return JsonConvert.DeserializeObject<List<SamplePlan>>(samplesString);
         }
 
         private static void SaveSamplePlans() {
-            var json = Newtonsoft.Json.JsonConvert.SerializeObject(_samplePlans);
-            Util.SaveText(SAMPLE_FILENAME, json);
-        }
-    }
-
-    // A plans and the index of TaskList selected as the best response
-    public class SamplePlan {
-
-        public Plan plan;
-
-        // Index of TaskList that was chosen as the best response
-        public int bestTaskListIndex;
-
-        public SamplePlan(Plan plan, int bestTaskListIndex) {
-            this.plan = plan;
-            this.bestTaskListIndex = bestTaskListIndex;
+            var json = JsonConvert.SerializeObject(_samplePlans);
+            Util.SaveText(SAMPLE_FILENAME, json, "json");
         }
     }
 }

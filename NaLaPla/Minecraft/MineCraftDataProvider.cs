@@ -9,7 +9,7 @@ namespace NaLaPla
     class MineCraftDataProvider : IDataProvider
     {
     
-        private string MinecraftDataFolder = "";
+        private string MineCraftDataFolder = "";
 
         // Number of words to require before adding section to index
         const int MIN_REQUIRED_WORDS = 5;
@@ -17,23 +17,23 @@ namespace NaLaPla
         const string SOURCE_DIR = "GroundingData";
 
         // Stack of files to process
-        private Stack<string> _DataFiles = null;
+        private Stack<string> _DataFiles;
 
         // Queue of document section w/in file to process
         private Queue<string> SubSections = new Queue<string>();
 
         // Current loaded file
-        private WikiRecord CurWikiRecord = null;
+        private WikiRecord CurWikiRecord;
     
 
         private string DataPath {
             get {
-                return Path.Combine(Environment.CurrentDirectory, SOURCE_DIR, MinecraftDataFolder);
+                return Path.Combine(Environment.CurrentDirectory, SOURCE_DIR, MineCraftDataFolder);
             }
         }
 
-        public MineCraftDataProvider(string minecraftDataFolder) {
-            this.MinecraftDataFolder = minecraftDataFolder;
+        public MineCraftDataProvider(string mineCraftDataFolder) {
+            this.MineCraftDataFolder = mineCraftDataFolder;
 
             if(!System.IO.Directory.Exists(DataPath)) {
                 throw new Exception($"Directory Not Found {DataPath}");
@@ -157,7 +157,7 @@ namespace NaLaPla
         }
 
         // Get next document section.  If all sections have been handled, move on to next file
-        private string NextDocumentSection() {
+        private string? NextDocumentSection() {
             if (SubSections.Count == 0) {
                 if (DataFiles.Count == 0) {
                     return null;
@@ -208,7 +208,7 @@ namespace NaLaPla
             return 4;
         }
 
-        private String GetBodyText(List<Text> textItems) {
+        private String? GetBodyText(List<Text> textItems) {
 
             // Filter out contents box
             if (textItems[1] != null && textItems[1].text == "Contents") {

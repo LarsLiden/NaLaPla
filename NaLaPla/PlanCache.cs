@@ -8,7 +8,7 @@ namespace NaLaPla
 
         private const string CACHE_FILENAME = "PlanCache";
 
-        private static List<CachedPlan> _cachedPlans = null;
+        private static List<CachedPlan>? _cachedPlans;
 
         private static List<CachedPlan> cachedPlans {
             get {

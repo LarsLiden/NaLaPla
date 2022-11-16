@@ -12,6 +12,15 @@ namespace NaLaPla
         TASKLIST
     }
 
+    public enum BestTaskPromptType
+    {
+        // Show full plan and ask which is best 
+        FULL,
+
+        // Show partial plan and ask which is best
+        PARTIAL
+    }
+
     public class Prompt {
 
         public const int MAX_PROMPT_SIZE = 2000;
@@ -38,7 +47,7 @@ namespace NaLaPla
 
     public class ExpandPrompt : Prompt {
 
-        private static string _oneshot;
+        private static string? _oneshot;
 
         private static string oneShot {
             get {
@@ -50,25 +59,26 @@ namespace NaLaPla
             }
         }
 
-        private static string MakeBasePrompt(Plan basePlan, Plan plan, PromptType promptType, bool useGrounding, string requestNumberOfSubtasks, bool displayGrounding) {
+        private static string MakeBasePrompt(Plan plan, PromptType promptType, bool useGrounding, string requestNumberOfSubtasks, bool displayGrounding) {
 
             var promptText = "";
             var irKey = "";
+            var numSubtasks = requestNumberOfSubtasks != "" ? $"{requestNumberOfSubtasks} " : "";
             switch (promptType) {
                 case PromptType.FIRSTPLAN:
 
                     
-                    promptText  +=  $"Your job is to provide instructions for a computer agent to {plan.description}. Please specify a numbered list of {requestNumberOfSubtasks} brief tasks that needs to be done.";
+                    promptText  +=  $"Your job is to provide instructions for a computer agent to {plan.description}. Please specify a numbered list of {numSubtasks}brief tasks that needs to be done.";
                     irKey = plan.description;
                     break;
                 case PromptType.TASK:
                     // Other experimental versions
                     // var prompt =  $"Your job is to {plan.parent.description}. Your current task is to {plan.description}. Please specify a numbered list of the work that needs to be done.";
-                    //var prompt = $"Please specify a numbered list of the work that needs to be done to {plan.description} when you {basePlan.description}";
-                    //var prompt = $"Please specify one or two steps that needs to be done to {plan.description} when you {basePlan.description}";
+                    //var prompt = $"Please specify a numbered list of the work that needs to be done to {plan.description} when you {plan.root.description}";
+                    //var prompt = $"Please specify one or two steps that needs to be done to {plan.description} when you {plan.root.description}";
                     //text = $"Your task is to {description}. Repeat the list and add {runtimeConfiguration.subtaskCount} subtasks to each of the items.\n\n";
 
-                    promptText = "";// Util.PlanToString(basePlan);
+                    promptText = "";// Util.PlanToString(plan.root);
                     promptText += $"\nProvide a list of short actions for a computer agent to {plan.description} in MineCraft.\n\n";
                     irKey = plan.description;
                     break;
@@ -79,10 +89,10 @@ namespace NaLaPla
                     prompt += "Please specify a bulleted list of the work that needs to be done for each step.";
                     */
                     promptText = String.Copy(oneShot);
-                    var description = (basePlan is null || basePlan.description is null) ? "fire your lead developer" : basePlan.description;
+                    var description = (plan.root == null || plan.root.description is null) ? "fire your lead developer" : plan.root.description;
                     var numberedSubTasksAsString = plan.SubPlanDescriptions();
     
-                    promptText  += $"Below are instruction for a computer agent to {description}. Repeat the list and insert {requestNumberOfSubtasks} bulleted subtasks under each of the numbered items.\n\n";// in cases where the computer agent could use detail\n\n";
+                    promptText  += $"Below are instruction for a computer agent to {description}. Repeat the list and insert {numSubtasks}bulleted subtasks under each of the numbered items.\n\n";// in cases where the computer agent could use detail\n\n";
                     promptText  += numberedSubTasksAsString;
                     irKey = numberedSubTasksAsString;
                     break;
@@ -104,9 +114,9 @@ namespace NaLaPla
             return promptText;
         }
 
-        public ExpandPrompt(Plan basePlan, Plan plan, PromptType promptType, bool useGrounding, string requestNumberOfSubtasks, bool displayGrounding) 
+        public ExpandPrompt(Plan plan, PromptType promptType, bool useGrounding, string requestNumberOfSubtasks, bool displayGrounding) 
         {
-            text = MakeBasePrompt(basePlan, plan, promptType, useGrounding, requestNumberOfSubtasks, displayGrounding);
+            text = MakeBasePrompt(plan, promptType, useGrounding, requestNumberOfSubtasks, displayGrounding);
         }   
     }
 }

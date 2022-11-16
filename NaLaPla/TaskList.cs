@@ -12,6 +12,8 @@ namespace NaLaPla
         // Number of times this task list was selected as the best
         public int bestCount = 0;
 
+        public int ranking = -1;
+
         // Reason this task list was chosen (or not)
         public string reason = "";
 
@@ -35,7 +37,7 @@ namespace NaLaPla
         public string ToString(bool numericIndex) {
 
             if (doNotExpand) {
-                return "<DON'T EXPAND>";
+                return "";
             }
             var output = "";
             for (int i = 0; i < taskDescriptions.Count; i++) {
@@ -45,7 +47,7 @@ namespace NaLaPla
             return output;
         }
         
-        public static TaskList Find(TaskList taskList, List<TaskList> taskLists) {
+        public static TaskList? Find(TaskList taskList, List<TaskList> taskLists) {
             foreach (var testList in taskLists) {
                 if (Equal(testList, taskList)) {
                     return testList;
@@ -74,7 +76,7 @@ namespace NaLaPla
             var cleanTaskList = new List<TaskList>();
 
             foreach (var taskList in taskLists) {
-                TaskList foundMatch = null;
+                TaskList? foundMatch = null;
                 foreach (var test in cleanTaskList) {
                     if (Equal(test, taskList)) {
                         foundMatch = test;

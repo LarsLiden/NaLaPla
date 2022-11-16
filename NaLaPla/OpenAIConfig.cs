@@ -4,7 +4,7 @@ public class OpenAIConfig {
 
     public static int DefaultMaxTokens = 500;
 
-        public static int DefaultNumResponses = 3;
+        public static int DefaultNumResponses = 4;
 
         public static float DefaultTemperature =  0.3f;
 

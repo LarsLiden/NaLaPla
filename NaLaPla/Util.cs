@@ -3,6 +3,7 @@ namespace NaLaPla
     using System;
     using System.IO;
     using System.Text.RegularExpressions;
+    using Newtonsoft.Json;
 
     public static class Util
     {
@@ -87,18 +88,6 @@ namespace NaLaPla
             return $"{text}".PadLeft(text.Length + (2*amount));
 
         }
-        // Show plan and sub-plans to string
-        public static string PlanToString(Plan plan, bool showExpansionState = false) {
-            var expansionStateString = showExpansionState ? $"{EnumToDescription(plan.state)}" : "";
-            string planText = IndentText($"- {plan.description} ({expansionStateString})\n", plan.planLevel);
-
-            if (plan.subPlans.Any()) {
-                foreach (var subPlan in plan.subPlans) {
-                    planText += PlanToString(subPlan);
-                }
-            }
-            return planText;
-        }
 
         // Show plan step and parents ABOVE plan
         public static string ReversePlanToString(Plan plan) {
@@ -129,32 +118,32 @@ namespace NaLaPla
         }
 
         public static string PlanToJSON(Plan plan) {
-            var json = Newtonsoft.Json.JsonConvert.SerializeObject(plan);
+            var json = JsonConvert.SerializeObject(plan);
             return json;
         }        
 
         public static Plan LoadPlan(string planName) {  
             var fileName = $"{planName}.{PLAN_FILE_EXTENSION}";
             var planString = File.ReadAllText($"{SAVE_DIRECTORY}/{fileName}");
-            var plan = Newtonsoft.Json.JsonConvert.DeserializeObject<Plan>(planString);
+            var plan = JsonConvert.DeserializeObject<Plan>(planString);
             if (plan is null) {
                 throw new Exception("Null plan loaded");
             }
             return plan;
         }
 
-        public static string GetPlanName(Plan basePlan) {
+        public static string GetPlanName(Plan plan) {
             
-            var planName = (basePlan.description is null) ? "--unknown--" : basePlan.description;
+            var planName = (plan.description is null) ? "--unknown--" : plan.description;
             foreach (var c in Path.GetInvalidFileNameChars()) {
                 planName.Replace(c.ToString(),"-");
             }
             return planName;
         }
 
-        private static string GetSaveName(Plan basePlan, string fileExtension) {
+        private static string GetSaveName(Plan plan, string fileExtension) {
             
-            var planName = GetPlanName(basePlan);
+            var planName = GetPlanName(plan);
             return GetSaveName(planName, fileExtension);
         }
 
@@ -172,19 +161,19 @@ namespace NaLaPla
             return planName;
         }
 
-        public static void PrintPlanToConsole(Plan plan, RuntimeConfig configuration, string runData="") {
+        public static void PrintPlanToConsole(Plan plan, string runData="") {
             var planName = GetPlanName(plan);
-            var planString = PlanToString(plan);
+            var planString = plan.PlanToString();
             Util.WriteLineToConsole(planName, ConsoleColor.Green);
-            Util.WriteLineToConsole(configuration.ToString(), ConsoleColor.Green);
+            Util.WriteLineToConsole(RuntimeConfig.settings.ToString(), ConsoleColor.Green);
             Util.WriteLineToConsole(runData, ConsoleColor.Green);
             Util.WriteLineToConsole(planString, ConsoleColor.White);
         }
 
-        public static String SavePlanAsText(Plan plan, RuntimeConfig configuration, string runData = "") {
+        public static String SavePlanAsText(Plan plan, string runData = "") {
             var saveName = GetSaveName(plan, TEXT_FILE_EXTENSION);
-            var planString = $"{configuration.ToString()}\n{runData}\n\n";
-            planString += PlanToString(plan);
+            var planString = $"{RuntimeConfig.settings.ToString()}\n{runData}\n\n";
+            planString += plan.PlanToString();
             SaveText(saveName, planString, TEXT_FILE_EXTENSION);
             return saveName;
         }
@@ -206,7 +195,7 @@ namespace NaLaPla
         }
 
         public static string LoadText(string filename, string extension = TEXT_FILE_EXTENSION) {
-            var fileName = $"{SAVE_DIRECTORY}/{filename}.{TEXT_FILE_EXTENSION}";
+            var fileName = $"{SAVE_DIRECTORY}/{filename}.{extension}";
             if (File.Exists(fileName)) {
                 var text = File.ReadAllText(fileName);
                 return text;
@@ -214,10 +203,10 @@ namespace NaLaPla
             return "";
         }
 
-        public static void DisplayProgress(Plan? basePlan, RuntimeConfig configuration, SemaphoreSlim GPTSemaphore, bool detailed = false) {
-            if (basePlan is null) return;
-            WriteLineToConsole($"\n\nProgress ({configuration.maxConcurrentGPTRequests - GPTSemaphore.CurrentCount} GPT requests in flight):",ConsoleColor.Blue);
-            WriteLineToConsole(PlanToString(basePlan, showExpansionState: true), ConsoleColor.Cyan);
+        public static void DisplayProgress(Plan? plan, SemaphoreSlim GPTSemaphore, bool detailed = false) {
+            if (plan is null) return;
+            WriteLineToConsole($"\n\nProgress ({RuntimeConfig.settings.maxConcurrentGPTRequests - GPTSemaphore.CurrentCount} GPT requests in flight):",ConsoleColor.Blue);
+            WriteLineToConsole(plan.PlanToString(showExpansionState: true), ConsoleColor.Cyan);
         }
 
         public static string EnumToDescription<T>(this T enumerationValue)
@@ -281,7 +270,7 @@ namespace NaLaPla
             }
             Util.WriteToConsole("> ");
             var userInput = Console.ReadLine();
-            return userInput;
+            return userInput ?? "";
         }
 
         // Show task above and below where looking for expansion
@@ -295,7 +284,29 @@ namespace NaLaPla
             - build a roof for the house
             - decorate the house
         */
+
         static public string MakeTaskPrompt(Plan plan, string optionPrompt) {
+            if (RuntimeConfig.settings.bestTaskPrompt == BestTaskPromptType.FULL) {
+                return MakeFullTaskPrompt(plan, optionPrompt);
+            }
+            else {
+                return MakePartialTaskPrompt(plan, optionPrompt);
+            }
+        }
+
+        // Show entire task where looking for expansion
+        static public string MakeFullTaskPrompt(Plan plan, string optionPrompt) {
+
+            // If plat is root it will not a root
+            if (plan.root == null) {
+                return plan.PlanToString(null, optionPrompt);
+            }
+            return plan.root.PlanToString(plan, optionPrompt);
+        }
+
+        // Show task above and below where looking for expansion
+        static public string MakePartialTaskPrompt(Plan plan, string optionPrompt) 
+        {
             var taskPrompt = Util.ReversePlanToString(plan);
             taskPrompt+= Util.IndentText($"  {optionPrompt}\n", plan.planLevel + 1);
             taskPrompt += Util.RemainingPlanToString(plan);
@@ -316,40 +327,27 @@ namespace NaLaPla
 
         // Assume response is of the format:
         /*
-        <OPTION 7>
-        <EXPLAIN YOUR REASONING>
-        <OPTION 1> is BAD because Is too specific
-        <OPTION 2> is BAD because Is too specific
-        <OPTION 3> is BAD because Is too specific
-        <OPTION 4> is GOOD because Is specific enough
+        <OPTION 3> is the best option because it is the most specific and provides the most detail)
+        <OPTION 1> is the second best option because it is specific but doesn't provide as much detail as option 1)
+        <OPTION 2> is the third best option because it is too general and doesn't provide enough detail)
         */
-        static public int ParseAndSetReasoningResponse(string text, List<TaskList> candidateSubTasks) {
+        static public void ParseReasoningResponse(string text, List<TaskList> candidateSubTasks) {
             var lines = text.Split('\n');
+            for (int i = 0; i <lines.Length; i++) {
+                var line = lines[i];
+                var optionIndex = GetOptionNumber(line, candidateSubTasks.Count);   
 
-            // Get best index
-            var optionLine = lines[0];
-            var bestOption = GetOptionNumber(optionLine, candidateSubTasks.Count);
+                // Skip lines that don't have an option number
+                if (optionIndex == -1) {
+                    continue;
+                }
+                
+                var reason = line.Substring(line.IndexOf(">")+1).Trim();
 
-            // Get index of line that that matches REASONING_PROMPT
-            var reasoningLine = Array.IndexOf(lines, BestTaskListExamples.REASONING_PROMPT);
-            if (reasoningLine == -1) {
-                 // TODO: do something here
-                return -1;
-            }
-
-            // Skip to reasoning lines
-            lines = lines.Skip(reasoningLine+1).ToArray();
-
-            // Extract reasoning and assign to task
-            for (int i=0; i < lines.Count(); i++) {
-                var optionIndex = GetOptionNumber(lines[i], candidateSubTasks.Count);
                 var taskList = candidateSubTasks[optionIndex];
-                taskList.reason = lines[i].Split('>')[1].Trim();
-
-                // TODO: Parse/set sentiment
+                taskList.reason = reason;
+                taskList.ranking = i;
             }
-
-            return bestOption;
         }
 
         // Extract number (n) from option texts of the for "<OPTION n>"
@@ -360,6 +358,11 @@ namespace NaLaPla
                 return StringToIndex(match.Groups[1].Value, maxIndex);
             }
             return -1;
+        }
+
+        static public T? CopyObject <T>(T source) {
+            var serialized = JsonConvert.SerializeObject(source);
+            return JsonConvert.DeserializeObject<T>(serialized);
         }
     }
 }

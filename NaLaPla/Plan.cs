@@ -1,7 +1,6 @@
 
 namespace NaLaPla
 {
-    using System.Text.Json.Serialization;
     using System.ComponentModel;
 
     public enum PlanState {
@@ -22,10 +21,14 @@ namespace NaLaPla
     public class Plan {
         public string description = "";
         public int planLevel;    
-  
+
         public List<Plan> subPlans;
 
-        // TODO: This field will not deseriaialize.  Need to add hooks to repopulate
+        // TODO: This field will not deserialize.  Need to add hooks to repopulate
+        [Newtonsoft.Json.JsonIgnore]
+        public Plan? root;
+
+        // TODO: This field will not deserialize.  Need to add hooks to repopulate
         [Newtonsoft.Json.JsonIgnore]
         public Plan? parent;
 
@@ -33,9 +36,10 @@ namespace NaLaPla
 
         public List<TaskList> candidateSubTasks;
 
-        public Plan(string description, Plan parent) {
+        public Plan(string description, Plan? parent) {
             this.description = description;
             this.planLevel = parent == null ? 0 : parent.planLevel + 1;
+            this.root = (parent == null || parent.root == null) ? parent : parent.root;
             this.parent = parent;
             this.subPlans = new List<Plan>();
             this.candidateSubTasks = new List<TaskList>();
@@ -56,6 +60,45 @@ namespace NaLaPla
                 doNotExpandTaskList.doNotExpand = true;
                 this.candidateSubTasks.Insert(0, doNotExpandTaskList);
             }
+        }
+
+        public int BestTaskListIndex() {
+            foreach (var taskList in this.candidateSubTasks) {
+                if (taskList.ranking == 0) {
+                    return this.candidateSubTasks.IndexOf(taskList);
+                }
+            }
+            return -1;
+        }
+
+
+        // Output plan and sub-plans as a string
+        public string PlanToString(bool showExpansionState = false) {
+
+            return PlanToString(null, null, showExpansionState);
+        }
+
+        // Output plan and sub-plans as a string
+        // If promptPlan is specified then show optionPrompt in place of the description
+        public string PlanToString(Plan? promptPlan, string? optionPrompt, bool showExpansionState = false) {
+
+            string planText; 
+            if (this == promptPlan) 
+            {
+                planText = Util.IndentText($"  {optionPrompt}\n", planLevel + 1);
+            } 
+            else 
+            {
+                    var expansionStateString = showExpansionState ? $"({Util.EnumToDescription(state)})" : "";
+                    planText = Util.IndentText($"- {description} {expansionStateString}\n", planLevel);
+            };
+
+            if (subPlans.Any()) {
+                foreach (var subPlan in subPlans) {
+                    planText += subPlan.PlanToString(promptPlan, optionPrompt, showExpansionState);
+                }
+            }
+            return planText;
         }
 
         // Convert list of plan subtasks into a list for prompting
