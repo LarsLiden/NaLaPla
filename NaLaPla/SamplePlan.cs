@@ -4,7 +4,7 @@ namespace NaLaPla
     // A plans and the index of TaskList selected as the best response
     public class SamplePlan {
 
-        public Plan plan;
+        public Plan? plan;
 
         // Index of TaskList that was chosen as the best response
         public string partialPlanPrompt;
@@ -15,6 +15,10 @@ namespace NaLaPla
 
             // Make a copy and remove unneeded fields
             this.plan = Util.CopyObject(plan);
+
+            if (this.plan == null) {
+                throw new Exception("Failed to copy plan");
+            }
             this.plan.subPlans = new List<Plan>();
 
             // Store plan prompt as save file won't store full plan

@@ -14,8 +14,6 @@ namespace NaLaPla
 
         const LuceneVersion AppLuceneVersion = LuceneVersion.LUCENE_48;
 
-        static bool done = false;
-
         static string IndexDirectory(string indexName = INDEX_FOLDER) {
             if(!System.IO.Directory.Exists(INDEX_FOLDER)) {
                     System.IO.Directory.CreateDirectory(INDEX_FOLDER);

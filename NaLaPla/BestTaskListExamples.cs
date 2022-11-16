@@ -46,7 +46,7 @@ namespace NaLaPla
         private static void AddSamplePlan(Plan plan) {
 
             // Find existing item
-            var samplePlan = samplePlans.FirstOrDefault(p => p.plan.description == plan.description);
+            var samplePlan = samplePlans.FirstOrDefault(p => p.plan != null && p.plan.description == plan.description);
             if (samplePlan == null) {
                 samplePlan = new SamplePlan(plan);
                 samplePlans.Add(samplePlan);
@@ -119,6 +119,11 @@ namespace NaLaPla
         }
 
         static private string MakeSamplePlanPrompt(SamplePlan samplePlan) {
+
+            if (samplePlan.plan == null) {
+                throw new Exception("Sample plan has no plan");
+            }
+
             var prompt = MakePlanPrompt(samplePlan.plan, samplePlan);
 
             for (int i=0;i<samplePlan.plan.candidateSubTasks.Count; i++) {
@@ -150,7 +155,11 @@ namespace NaLaPla
             if (samplesString == null || String.IsNullOrEmpty(samplesString)) {
                 return new List<SamplePlan>();
             }   
-            return JsonConvert.DeserializeObject<List<SamplePlan>>(samplesString);
+            var samplePlans = JsonConvert.DeserializeObject<List<SamplePlan>>(samplesString);
+            if (samplePlans == null) {
+                return new List<SamplePlan>();
+            }
+            return samplePlans;
         }
 
         private static void SaveSamplePlans() {

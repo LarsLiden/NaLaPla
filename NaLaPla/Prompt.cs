@@ -88,7 +88,7 @@ namespace NaLaPla
                     prompt += Util.GetNumberedSteps(plan);
                     prompt += "Please specify a bulleted list of the work that needs to be done for each step.";
                     */
-                    promptText = String.Copy(oneShot);
+                    promptText = new string(oneShot);
                     var description = (plan.root == null || plan.root.description is null) ? "fire your lead developer" : plan.root.description;
                     var numberedSubTasksAsString = plan.SubPlanDescriptions();
     

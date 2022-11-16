@@ -278,7 +278,7 @@ namespace NaLaPla
             - build a house in MineCraft
             - build a foundation for the house
                 - place flocks for the foundation
-                    <SELECT BEST OPTION HERE>
+                    {optionPrompt}
                 - fill in the foundation
             - build wall for the house
             - build a roof for the house

@@ -24,7 +24,7 @@
         SUBTASKS,        // default subtasks to ask for
         [Description("-TEMP     \t<float 0-1>\t\t\tDefault temperature")]
         TEMP,            // default temperature]
-        [Description("-TEMPMULT\t<float>\t\t\tTemperature multipler per level")]
+        [Description("-TEMPMULT\t<float>\t\t\tTemperature multiplier per level")]
         TEMPMULT,            // default temperature]        
         [Description("-SHOWGROUND\t<bool>\t\t\tShow grounding info")]
         SHOWGROUND,            // default temperature]
@@ -123,6 +123,9 @@
 
                 var newFilename = Path.GetFileName(textFileName) + $"-Post{i+1}";
                 var dir = Path.GetDirectoryName(textFileName);
+                if (dir == null) {
+                    throw new Exception("Could not get directory name");
+                }
                 var ext = Path.GetExtension(textFileName);
                 var saveFilename = Path.Combine(dir, newFilename + ext);
 
@@ -390,7 +393,7 @@
                 // If user want to to quit, terminate the program and print the plan
                 if (userInput == "q") {
                     Util.WriteLineToConsole("Quitting...", ConsoleColor.Red);
-                    OutputFinalPlan(plan.root);
+                    OutputFinalPlan(plan.root != null ? plan.root : plan);
                     Environment.Exit(0);
                 }
                 else if (userInput == "p") {

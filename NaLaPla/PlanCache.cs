@@ -62,7 +62,11 @@ namespace NaLaPla
             if (String.IsNullOrEmpty(cacheString)) {
                 return new List<CachedPlan>();
             }   
-            return Newtonsoft.Json.JsonConvert.DeserializeObject<List<CachedPlan>>(cacheString);
+            var cacheList = Newtonsoft.Json.JsonConvert.DeserializeObject<List<CachedPlan>>(cacheString);
+            if (cacheList == null) {
+                return new List<CachedPlan>();
+            }
+            return cacheList;
         }
 
         private static void SaveCache() {
@@ -76,7 +80,9 @@ namespace NaLaPla
 
         public List<TaskList> candidateSubTasks;
 
-        public CachedPlan() {}
+        public CachedPlan() {
+            this.candidateSubTasks = new List<TaskList>();
+        }
 
         public CachedPlan(string description) {
             this.description = description;

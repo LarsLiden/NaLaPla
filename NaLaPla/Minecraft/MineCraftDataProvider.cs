@@ -17,13 +17,13 @@ namespace NaLaPla
         const string SOURCE_DIR = "GroundingData";
 
         // Stack of files to process
-        private Stack<string> _DataFiles;
+        private Stack<string>? _DataFiles;
 
         // Queue of document section w/in file to process
         private Queue<string> SubSections = new Queue<string>();
 
         // Current loaded file
-        private WikiRecord CurWikiRecord;
+        private WikiRecord? CurWikiRecord;
     
 
         private string DataPath {
@@ -105,7 +105,7 @@ namespace NaLaPla
                 texts.Add(CleanInnerText(node.InnerText));
             }
 
-            // Create a dictionary with count of occurances
+            // Create a dictionary with count of occurrences
             Dictionary<string, int> tagDictionary = new Dictionary<string, int>();
             foreach (var text in texts) {
                 if (tagDictionary.ContainsKey(text)) {
@@ -165,12 +165,14 @@ namespace NaLaPla
                 var nextFile = DataFiles.Pop();
                 var jsonString = File.ReadAllText(nextFile);
                 CurWikiRecord = Newtonsoft.Json.JsonConvert.DeserializeObject<WikiRecord>(jsonString);
-                CurWikiRecord.metadata.fileName = nextFile;
-                AugmentWithDomData(CurWikiRecord);
 
                 if (CurWikiRecord == null || CurWikiRecord.texts == null) {
                     return NextDocumentSection();    
                 }
+
+                CurWikiRecord.metadata.fileName = nextFile;
+                AugmentWithDomData(CurWikiRecord);
+
                 var subTexts = CurWikiRecord.texts.Select(t => t.text);
                 SubSections = GenerateDocumentSections(CurWikiRecord);
                 Util.WriteLineToConsole($"Adding: {CurWikiRecord.Title, -30} with {SubSections.Count, -10} items ({DataFiles.Count()} remaining)", ConsoleColor.DarkGreen);
@@ -233,7 +235,7 @@ namespace NaLaPla
             var lastTagLevel = textItems.Any() ? TagLevel(textItems.Last()) : 0;
 
             // If no next item
-            if (!inputQueue.TryDequeue(out Text curText)) {
+            if (!inputQueue.TryDequeue(out Text? curText)) {
                 // Add to output if more than just headers
                 if (lastTagLevel > 3) {
                     var bodyText = GetBodyText(textItems);
@@ -284,17 +286,17 @@ namespace NaLaPla
 
             // Add table sections
             var tableQueue = new Queue<Table>(wikiRecord.tables);
-            while (tableQueue.TryDequeue(out Table nextTable)) {
+            while (tableQueue.TryDequeue(out Table? nextTable)) {
                 ProcessTable(nextTable, outputQueue); 
             }             
 
             return outputQueue;
         }
 
-        public Document GetNextDocument() {
+        public Document? GetNextDocument() {
             
             var documentBody = NextDocumentSection();
-            if (documentBody == null) {
+            if (documentBody == null || CurWikiRecord == null) {
                 return null;
             }                
             var doc = new Document
