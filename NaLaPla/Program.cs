@@ -1,16 +1,12 @@
-﻿using System.Diagnostics;
-namespace NaLaPla
+﻿namespace NaLaPla
 {
     using Microsoft.Extensions.Configuration;
     using OpenAI.GPT3;
     using OpenAI.GPT3.Managers;
-    using OpenAI.GPT3.ObjectModels;
     using OpenAI.GPT3.ObjectModels.ResponseModels;
     using OpenAI.GPT3.ObjectModels.RequestModels;
-    using OpenAI.GPT3.Extensions;
-    using OpenAI.GPT3.Interfaces;
-    using Microsoft.Extensions.Configuration.EnvironmentVariables;
     using System.ComponentModel;
+    using Spectre.Console;
 
     enum FlagType
     {
@@ -28,7 +24,7 @@ namespace NaLaPla
         SUBTASKS,        // default subtasks to ask for
         [Description("-TEMP     \t<float 0-1>\t\t\tDefault temperature")]
         TEMP,            // default temperature]
-        [Description("-TEMPMULT\t<float>\t\t\tTemperature multipler per level")]
+        [Description("-TEMPMULT\t<float>\t\t\tTemperature multiplier per level")]
         TEMPMULT,            // default temperature]        
         [Description("-SHOWGROUND\t<bool>\t\t\tShow grounding info")]
         SHOWGROUND,            // default temperature]
@@ -40,11 +36,9 @@ namespace NaLaPla
 
     class Program {
 
-        static Plan ?basePlan;
         static int GPTRequestsTotal = 0;
 
-        static RuntimeConfig runtimeConfiguration = new RuntimeConfig(); // For now just has hardcoded defaults
-        static SemaphoreSlim GPTSemaphore = new SemaphoreSlim(runtimeConfiguration.maxConcurrentGPTRequests,runtimeConfiguration.maxConcurrentGPTRequests);
+        static SemaphoreSlim GPTSemaphore = new SemaphoreSlim(RuntimeConfig.settings.maxConcurrentGPTRequests,RuntimeConfig.settings.maxConcurrentGPTRequests);
 
         static List<string> PostProcessingPrompts = new List<string>() {
             "Revise the task list below removing any steps that are equivalent\n"
@@ -61,75 +55,77 @@ namespace NaLaPla
                     .AddEnvironmentVariables()
                     .Build();
 
-            bool bail = false;
+            Plan? rootPlan = null;
+            var bail = false;
             while (bail == false) {
                 foreach (FlagType flag in Enum.GetValues(typeof(FlagType))) {
-                    Console.WriteLine(Util.GetDescription(flag));
+                    Console.WriteLine(Util.EnumToDescription(flag));
                 }
-                Util.WriteToConsole($"{runtimeConfiguration.ToString()}", ConsoleColor.Green);
+                Util.WriteLineToConsole($"{RuntimeConfig.settings.ToString()}", ConsoleColor.Green);
 
                 Console.WriteLine("What do you want to plan?");
-                var userInput = Console.ReadLine();
+                var userInput = Util.GetUserInput();
+
                 if (String.IsNullOrEmpty(userInput)) {
                     bail = true;
                 } else {
                     (string planDescription, List<FlagType> flags) = ParseUserInput(userInput);
 
-                    if (runtimeConfiguration.shouldLoadPlan) {
+                    if (RuntimeConfig.settings.shouldLoadPlan) {
                         Console.WriteLine($"Loading {planDescription}");
-                        basePlan = Util.LoadPlan(planDescription); 
+                        rootPlan = Util.LoadPlan(planDescription); 
                         bail = true;
                     }
 
-                    if (runtimeConfiguration.indexToBuild != "") {
+                    if (RuntimeConfig.settings.indexToBuild != "") {
                         try {
-                            IR.CreateIndex(new MineCraftDataProvider(runtimeConfiguration.indexToBuild));
+                            IR.CreateIndex(new MineCraftDataProvider(RuntimeConfig.settings.indexToBuild));
                         }
                         catch (Exception e) {
-                            Util.WriteToConsole("Failed to create Index", ConsoleColor.Red);
-                            Util.WriteToConsole(e.Message.ToString(), ConsoleColor.DarkRed);
+                            Util.WriteLineToConsole("Failed to create Index", ConsoleColor.Red);
+                            Util.WriteLineToConsole(e.Message.ToString(), ConsoleColor.DarkRed);
                         }
                     }
 
                     if (!String.IsNullOrEmpty(planDescription)) {
-                        basePlan = new Plan() {
-                        description = planDescription,
-                        planLevel = 0, 
-                        subPlans = new List<Plan>()
-                        };
+                        rootPlan = new Plan(planDescription, null);
                         bail = true;
                     }
                 }
             }
-            if (basePlan is null) return; // no plan was loaded and text was blank
+            if (rootPlan == null) {
+                return; // no plan was loaded and text was blank
+            }
 
             var runTimer = new System.Diagnostics.Stopwatch();
-            runTimer.Start();
 
-            await ExpandPlan(basePlan);
+            runTimer.Start();
+            await ExpandPlan(rootPlan); 
             runTimer.Stop();
 
             var runData = $"Runtime: {runTimer.Elapsed.ToString(@"m\:ss")}, GPT requests: {GPTRequestsTotal}\n";
 
             // Output plan
-            Util.PrintPlanToConsole(basePlan, runtimeConfiguration, runData);
-            var textFileName = Util.SavePlanAsText(basePlan, runtimeConfiguration, runData);
-            Util.SavePlanAsJSON(basePlan);
+            OutputFinalPlan(rootPlan, runData);
 
             // Do post processing steps
-            var planString = Util.PlanToString(basePlan);
+            var planString = rootPlan.PlanToString();
+            var textFileName = Util.SavePlanAsText(rootPlan, runData);
             for (int i=0;i<PostProcessingPrompts.Count;i++) {
                 var postPromptToUse = PostProcessingPrompts[i];
                 var prompt = $"{postPromptToUse}{Environment.NewLine}START LIST{Environment.NewLine}{planString}{Environment.NewLine}END LIST";
 
                 // Expand Max Tokens to cover size of plan
-                var postPrompt = new Prompt(prompt, runtimeConfiguration);
-                postPrompt.OAIConfig.MaxTokens = 2000;
+                var openAIConfig = new OpenAIConfig(maxTokens: 2000, OpenAIConfig.DefaultNumResponses, OpenAIConfig.DefaultTemperature);
+                var postPrompt = new Prompt(prompt, openAIConfig);
 
                 var gptResponse = await GetGPTResponses(postPrompt);
 
                 var newFilename = Path.GetFileName(textFileName) + $"-Post{i+1}";
                 var dir = Path.GetDirectoryName(textFileName);
+                if (dir == null) {
+                    throw new Exception("Could not get directory name");
+                }
                 var ext = Path.GetExtension(textFileName);
                 var saveFilename = Path.Combine(dir, newFilename + ext);
 
@@ -138,6 +134,11 @@ namespace NaLaPla
             }
         }
         
+        static private void OutputFinalPlan(Plan plan, string runData = "") {
+            Util.PrintPlanToConsole(plan);
+            Util.SavePlanAsJSON(plan);
+        }
+
         static List<FlagType> TryGetFlag<T>(List<String>flagsAndValues, FlagType targetFlag, ref T targetSetting) {
             var flags = new List<FlagType>();
             foreach(string flagAndValue in flagsAndValues) {
@@ -171,199 +172,324 @@ namespace NaLaPla
             var flags = new List<FlagType>();
 
             // Settings
-            flags.AddRange(TryGetFlag(pieces, FlagType.DEPTH, ref runtimeConfiguration.expandDepth));
-            flags.AddRange(TryGetFlag(pieces, FlagType.TEMP, ref runtimeConfiguration.temperature));
-            flags.AddRange(TryGetFlag(pieces, FlagType.TEMPMULT, ref runtimeConfiguration.tempMultPerLevel));
-            flags.AddRange(TryGetFlag(pieces, FlagType.MAXGPT, ref runtimeConfiguration.maxConcurrentGPTRequests));
-            flags.AddRange(TryGetFlag(pieces, FlagType.SUBTASKS, ref runtimeConfiguration.subtaskCount));
-            flags.AddRange(TryGetFlag(pieces, FlagType.SHOWGROUND, ref runtimeConfiguration.showGrounding));                    
-            flags.AddRange(TryGetFlag(pieces, FlagType.USEGROUND, ref runtimeConfiguration.useGrounding));                    
-            flags.AddRange(TryGetFlag(pieces, FlagType.SHOWPROMPT, ref runtimeConfiguration.showPrompts));                    
+            flags.AddRange(TryGetFlag(pieces, FlagType.DEPTH, ref RuntimeConfig.settings.expandDepth));
+            flags.AddRange(TryGetFlag(pieces, FlagType.TEMP, ref RuntimeConfig.settings.temperature));
+            flags.AddRange(TryGetFlag(pieces, FlagType.TEMPMULT, ref RuntimeConfig.settings.temperatureDecay));
+            flags.AddRange(TryGetFlag(pieces, FlagType.MAXGPT, ref RuntimeConfig.settings.maxConcurrentGPTRequests));
+            flags.AddRange(TryGetFlag(pieces, FlagType.SUBTASKS, ref RuntimeConfig.settings.promptSubtaskCount));
+            flags.AddRange(TryGetFlag(pieces, FlagType.USEGROUND, ref RuntimeConfig.settings.useGrounding));   
+            flags.AddRange(TryGetFlag(pieces, FlagType.SHOWGROUND, ref RuntimeConfig.settings.displayOptions.showGrounding));                                     
+            flags.AddRange(TryGetFlag(pieces, FlagType.SHOWPROMPT, ref RuntimeConfig.settings.displayOptions.showPrompts));                    
 
             // Actions
-            flags.AddRange(TryGetFlag(pieces, FlagType.LOAD, ref runtimeConfiguration.shouldLoadPlan));
-            flags.AddRange(TryGetFlag(pieces, FlagType.INDEX, ref runtimeConfiguration.indexToBuild));
+            flags.AddRange(TryGetFlag(pieces, FlagType.LOAD, ref RuntimeConfig.settings.shouldLoadPlan));
+            flags.AddRange(TryGetFlag(pieces, FlagType.INDEX, ref RuntimeConfig.settings.indexToBuild));
             return (planDescription, flags);
         }
 
-        static async System.Threading.Tasks.Task ExpandPlan(Plan planToExpand) {
-            if (basePlan is null) {
-                throw new Exception("Got null basePlan");
-            }
-            if (planToExpand.planLevel > runtimeConfiguration.expandDepth) {
-                planToExpand.state = PlanState.FINAL;
+
+        static async System.Threading.Tasks.Task ExpandPlan(Plan plan) 
+        {
+            // If I've reach max expand depth I'm done
+            if (plan.planLevel > RuntimeConfig.settings.expandDepth) {
+                plan.state = PlanState.FINAL;
                 return;
             }
-            planToExpand.state = PlanState.GPT_PROMPT_SUBMITTED;
-            Util.DisplayProgress(basePlan, runtimeConfiguration, GPTSemaphore);
-            var gptResponseCount = await ExpandPlanWithGPT(planToExpand);
 
-            Response bestResponse;
-            if (planToExpand.prompt is null) {
-                throw new Exception("Got null prompt");
+            Util.DisplayProgress(plan.root, GPTSemaphore);
+
+            // Always have to expand one by one if no sub-plans
+            if (plan.subPlans.Count() == 0 ) {
+                await ExpandPlanOneByOne(plan);     
             }
-            if (gptResponseCount > 0) {
-                bestResponse = await GetBestResponse(basePlan, planToExpand.prompt.responses);
-            } else {
-                bestResponse = planToExpand.prompt.responses.First();
+            else if (RuntimeConfig.settings.ExpandMode == ExpandModeType.ONE_BY_ONE) {
+                await ExpandPlanOneByOne(plan);     
             }
+            else if (RuntimeConfig.settings.ExpandMode == ExpandModeType.AS_A_LIST) {
+                await ExpandPlanAsAList(plan);
+            }
+        }
 
-            planToExpand.state = PlanState.PROCESSING;
-            // If one sub item at a time, create children and then expand with
-            if (runtimeConfiguration.ExpandMode == ExpandModeType.ONE_BY_ONE) {
-                
-                planToExpand.subPlanDescriptions = Util.ParseSubPlanList(bestResponse.ToString());
-
-                // Create sub-plans
-                foreach (var subPlanDescription in planToExpand.subPlanDescriptions) {
-                    var plan = new Plan() {
-                        description = subPlanDescription,
-                        planLevel = planToExpand.planLevel + 1,
-                        subPlans = new List<Plan>(),
-                        parent = planToExpand
-                    };
-                    planToExpand.subPlans.Add(plan);
+        static async System.Threading.Tasks.Task ExpandPlanOneByOne(Plan planToExpand) 
+        {
+            // Add cached plans
+            if (RuntimeConfig.settings.useCachedPlans)
+            {
+                var cachedSubTasks = PlanCache.GetTaskLists(planToExpand.description);
+                if (cachedSubTasks.Any()) {
+                    planToExpand.candidateSubTasks.AddRange(cachedSubTasks);
                 }
-                if (runtimeConfiguration.maxConcurrentGPTRequests > 1) {
-                    var plans = planToExpand.subPlans.Select(async subPlan =>
-                    {
-                            await ExpandPlan(subPlan);
-                    });
-                    await System.Threading.Tasks.Task.WhenAll(plans);
-                } else {
-                    foreach (var subPlan in planToExpand.subPlans) {
+            }
+
+            planToExpand.state = PlanState.GPT_PROMPT_SUBMITTED;
+
+            // Add candidate expansions for this plan
+            await AddCandidateTaskLists(planToExpand);
+
+            // Pick best task list
+            TaskList? bestTaskList = await GetBestTaskList(planToExpand);
+
+            // Create sub plans
+            AddSubPlans(planToExpand, bestTaskList);
+
+            // If expanding as a list, expand again on current plan now that it has sub-plans
+            if (RuntimeConfig.settings.ExpandMode == ExpandModeType.AS_A_LIST) {
+                await ExpandPlan(planToExpand);
+            }
+
+            // Else If expanding one by one and doing concurrent requests
+            else if (RuntimeConfig.settings.ExpandMode == ExpandModeType.ONE_BY_ONE 
+                && RuntimeConfig.settings.maxConcurrentGPTRequests > 1) {
+                var plans = planToExpand.subPlans.Select(async subPlan =>
+                {
                         await ExpandPlan(subPlan);
+                });
+                await System.Threading.Tasks.Task.WhenAll(plans);
+            } 
+            // Otherwise expand one at a time
+            else {
+                foreach (var subPlan in planToExpand.subPlans) {
+                    await ExpandPlan(subPlan);
+                }
+            }
+
+            planToExpand.state = PlanState.DONE;
+        }
+
+        static async Task ExpandPlanAsAList(Plan planToExpand) 
+        {
+            // Add cached plans
+            if (RuntimeConfig.settings.useCachedPlans) {
+                foreach (Plan subPlan in planToExpand.subPlans) { 
+                    var cachedSubTasks = PlanCache.GetTaskLists(subPlan.description);
+                    if (cachedSubTasks.Any()) {
+                        subPlan.candidateSubTasks.AddRange(cachedSubTasks);
                     }
                 }
             }
-            // Otherwise, expand all at once and then create children
-            else if (runtimeConfiguration.ExpandMode == ExpandModeType.AS_A_LIST) {
 
-                if (planToExpand.subPlanDescriptions.Count == 0) {
-                    planToExpand.subPlanDescriptions = Util.ParseSubPlanList(bestResponse.ToString());
-                    await ExpandPlan(planToExpand);
+            // Add candidate TaskLists to all sub-plans
+            await AddCandidateTaskListsToSubPlans(planToExpand);
+
+            foreach (var subPlan in planToExpand.subPlans) {
+
+                // If plan doesn't have dotNotExpand option, add it or move to first position
+                subPlan.AddDoNotExpandOption();
+
+                // Pick bask task list
+                TaskList? bestTaskList = await GetBestTaskList(subPlan);
+
+                // Create sub-plans
+                AddSubPlans(subPlan, bestTaskList);
+                
+                if (subPlan.subPlans.Count > 0) {
+                    await ExpandPlan(subPlan);
                 }
-                else {
-                    UpdatePlan(planToExpand, bestResponse.ToString());
+            }
 
-                    // If I haven't reached the end of the plan
-                    if (planToExpand.subPlans.Count > 0 ) {
-                        if (runtimeConfiguration.maxConcurrentGPTRequests > 1) {
-                            var plans = planToExpand.subPlans.Select(async subPlan =>
-                            {
-                                if (subPlan.subPlanDescriptions.Any()) {
-                                    await ExpandPlan(subPlan);
-                                }
-                            });
-                            await System.Threading.Tasks.Task.WhenAll(plans);
-                        } else {
-                            foreach (var subPlan in planToExpand.subPlans) {
-                                if (subPlan.subPlanDescriptions.Any()) {
-                                    await ExpandPlan(subPlan);
-                                }
-                            }
+            planToExpand.state = PlanState.DONE;
+        }
+
+        private static (string, List<string>) ParseListItem(string listItem) {
+            var steps = listItem.Replace("\n-", " -").Split(" -").ToList().Select(s => s.TrimStart().TrimEnd(' ', '\r', '\n')).ToList();
+            var description = steps[0];
+            steps.RemoveAt(0);
+            var subPlanDescriptions = steps;
+            return (description, subPlanDescriptions);
+        }
+
+        private static void AddSubPlans(Plan planToExpand, TaskList? taskList) {
+
+            // If no best response, stop expansion
+            if (taskList == null || taskList.taskDescriptions.Count == 0) {
+                planToExpand.state = PlanState.DONE;
+                return;
+            }
+            planToExpand.state = PlanState.PROCESSING;
+
+            // Create sub-plans
+            foreach (var taskDescription in taskList.taskDescriptions) {
+                var plan = new Plan(taskDescription, planToExpand);
+                planToExpand.subPlans.Add(plan);
+            }
+        }
+
+        // When multiple GPT responses provided, chooses between them
+        static async Task<TaskList?> GetBestTaskList(Plan plan) {
+
+            if (plan.candidateSubTasks.Count == 0) {
+                return null;
+            }
+
+            plan.candidateSubTasks = TaskList.RemoveDuplicates(plan.candidateSubTasks);
+
+            if (RuntimeConfig.settings.bestResponseChooser == BestResponseChooserType.USER) {
+                var bestTaskList = await GetBestResponseDeterminedByUser(plan);
+                return bestTaskList;
+            }
+            else {  // (RuntimeConfig.settings.bestResponseChooser == BestResponseChooserType.GPT)
+                var bestIndex = await GetBestResponseDeterminedByGPT(plan);
+                return plan.candidateSubTasks[bestIndex];
+            }
+        }
+
+        // When multiple GPT responses provided, asks user which response is the best to choose between them
+        static async Task<TaskList?> GetBestResponseDeterminedByUser(Plan plan) 
+        {
+            var gptBestIndex = await GetBestResponseDeterminedByGPT(plan);
+
+            // Draw table options
+            string[] optionColors  = {"blue", "lime", "Yellow", "Fuchsia", "aqua", "cyan1", "blueviolet", "chartreuse2_1"};
+            var table = new Spectre.Console.Table();
+
+            var taskRow = new string[plan.candidateSubTasks.Count+1];
+            var reasonRow = new string[plan.candidateSubTasks.Count+1];
+
+            table.AddColumn("Task");
+            var taskPrompt = Util.MakeTaskPrompt(plan, $"[red]{BestTaskListExamples.WHICH_PROMPT}[/]");
+            taskRow[0] = taskPrompt;
+            reasonRow[0] = "[red]GPT Reason[/]";
+
+            foreach (var data in plan.candidateSubTasks.Select((taskList, index) => (taskList, index)))
+            {
+                var optionColor = optionColors[data.index % optionColors.Length];
+                var gtpSelected = data.index == gptBestIndex ? "[red](GPT)[/]" : "";
+                var cached = (data.taskList.fromCache) ? $"(C{data.taskList.bestCount})" : "";
+                table.AddColumn($"[{optionColor}]Option {data.index+1} {cached}[/] {gtpSelected}");
+                taskRow[data.index+1] = $"[{optionColor}]{data.taskList.ToString().Trim()}[/]";
+
+                var reasonColor = data.index == gptBestIndex  ? "green" : "red";
+                reasonRow[data.index+1] = $"[{reasonColor}]{data.taskList.reason}[/]";
+            }
+            table.AddRow(taskRow);
+            table.HorizontalBorder();
+            table.AddRow(reasonRow);
+            AnsiConsole.Write(table);
+
+            var selectedIndex = UsersSelectedTaskList(plan);
+            if (selectedIndex < 0) {
+                return null;
+            }
+
+            var bestCandidateTasks = plan.candidateSubTasks.ElementAt(selectedIndex);
+
+            // If the user chose dontExpand, increment the cache count and return null
+            if (bestCandidateTasks.doNotExpand) {
+                PlanCache.AddNoExpandTaskList(plan.description);
+                return null;
+            }
+
+            // Add to task cache
+            PlanCache.AddTaskList(plan.description, bestCandidateTasks);
+
+            return bestCandidateTasks;
+        }
+
+        static private int UsersSelectedTaskList(Plan plan) {
+
+            while (true) {
+                var userInput = Util.GetUserInput("Which OPTION is best? (? for help)");
+
+                // If user want to to quit, terminate the program and print the plan
+                if (userInput == "q") {
+                    Util.WriteLineToConsole("Quitting...", ConsoleColor.Red);
+                    OutputFinalPlan(plan.root != null ? plan.root : plan);
+                    Environment.Exit(0);
+                }
+                else if (userInput == "p") {
+                    BestTaskListExamples.CreateSamplePlan(plan);
+                }
+                else if (userInput == "r") {
+                    Util.WriteLineToConsole(plan.Reasoning(), ConsoleColor.Cyan);
+                }
+                else if (userInput == "?") {
+                    Util.WriteLineToConsole("#: selected option (0 - none)\np: create prompt example\nr: show reasoning\nq: save and quit\n", ConsoleColor.Cyan);
+                }
+                else {  
+                    return Util.StringToIndex(userInput, plan.candidateSubTasks.Count);             
+                }
+            }
+        }
+
+        // When multiple task lists provided, asks GPT which response is the best to choose between them
+        static async Task<int> GetBestResponseDeterminedByGPT(Plan plan) {
+
+            var promptString = BestTaskListExamples.TaskListPrompt(plan);
+
+            // Use zero temperature to get a single best response
+            var openAIConfig = new OpenAIConfig(OpenAIConfig.DefaultMaxTokens, numResponses: 1, temperature: 0);
+            var prompt = new Prompt(promptString, openAIConfig);
+
+            // Change: the actual responses will be in bestPrompt.responses
+            var resultCount = await GetGPTResponses(prompt);
+
+            Util.ParseReasoningResponse(prompt.responses[0], plan.candidateSubTasks);
+
+            return plan.BestTaskListIndex();
+        }
+
+        // Given a Plan, adds candidate task lists for that plan (used when expanding one plan at a time)
+        static async Task AddCandidateTaskLists(Plan plan) {
+
+            var promptType = (plan.planLevel == 0) ? PromptType.FIRSTPLAN : PromptType.TASK;
+            var responses = await ExpandWithGPT(plan, promptType);
+
+            // Now generate candidate task lists from teach response
+            var candidateTaskLists = new List<TaskList>();
+            foreach (var response in responses) {
+                candidateTaskLists.Add(new TaskList(response));
+            }
+            plan.candidateSubTasks.AddRange(candidateTaskLists);
+        }
+
+        // Given a plan adds candidate task list to each of its sub-plans (used when when expanding plans as a list)
+        static async Task AddCandidateTaskListsToSubPlans(Plan plan) {
+
+            var responses = await ExpandWithGPT(plan, PromptType.TASKLIST);
+
+            foreach (string response in responses) {
+                // Assume response is of the form: "1. task1 -subtask1 -subtask2 2. task2 -subtask 1..."
+                // Each number corresponds to an existing sub-plan
+                // Each sub-bullet, corresponds to suggested tasks for that sub plan
+                var bulletedItem = Util.NumberToBullet(response);
+                var list = Util.ParseListToLines(bulletedItem).ToList();
+
+                // Break is list item into parent and sub-items
+                foreach (var listItem in list) {
+                    // Split line in to plan description and sub-task descriptions
+                    (string planDescription, List<string> subPlanDescriptions) = ParseListItem(listItem);
+
+                    if (subPlanDescriptions.Count >= 0) {
+                        // Find the subplan
+                        var subPlan = plan.subPlans.FirstOrDefault(p => p.description == planDescription);
+                        if (subPlan != null) {
+                            subPlan.candidateSubTasks.Add(new TaskList(subPlanDescriptions));
                         }
                     }
                 }
             }
-            planToExpand.state = PlanState.DONE;
-            Util.DisplayProgress(basePlan, runtimeConfiguration, GPTSemaphore);
+
+            //TODO - remove duplicates
         }
 
-        public static void UpdatePlan(Plan plan, string gptResponse) {
 
-            // Assume list is like: "1. task1 -subtask1 -subtask2 2. task2 -subtask 1..."
-            var bulletedItem = Util.NumberToBullet(gptResponse);
-            var list = Util.ParseListToLines(bulletedItem).ToList();
 
-            // When GPT can't find any more subtasks, it just add to the end of the list
-            if (list.Count() > plan.subPlanDescriptions.Count()) {
-                return;
-            }
-            plan.subPlans = new List<Plan>();
-            foreach (var item in list) {
-                var steps = item.Replace("\n-", " -").Split(" -").ToList().Select(s => s.TrimStart().TrimEnd(' ', '\r', '\n')).ToList();
+        static async Task<List<string>> ExpandWithGPT(Plan plan, PromptType promptType) {
 
-                // Check if the plan has bottomed out
-                if (steps[0]=="") {
-                    plan.subPlanDescriptions = steps;
-                    return;
-                }
-                
-                var description = steps[0];
-                steps.RemoveAt(0);
-                var subPlan = new Plan() {
-                        description = description,
-                        planLevel = plan.planLevel + 1, 
-                        subPlanDescriptions = steps,
-                        subPlans = new List<Plan>()
-                    };
-                plan.subPlans.Add(subPlan);
-            }
-            if (runtimeConfiguration.showResults) {
-                Util.PrintPlanToConsole(plan,runtimeConfiguration);
-            }
-        }
-
-        static async Task<Response> GetBestResponse(Plan plan, List<Response> responses) {
-            if (basePlan is null) {
-                throw new Exception("Got null basePlan");
-            }
-            if (responses.Count == 1) {
-                return responses.First();
-            }
-            
-            // If plans are all the same don't need to run query
-            bool isAllEqual = responses.Distinct().Count() == 1;
-            if (isAllEqual) {
-                return responses.First();
-            }
-
-            var prompt = $"Which plan is a better for a computer program to ${basePlan.description}?/n";
-
-            foreach (var data in responses.Select((response, index) => (response, index)))
-            {
-                prompt += $"START PLAN {data.index +1}\n{data.response.ToString().Trim()}\nEND PLAN {data.index +1}\n";
-            }
-            //Console.WriteLine(prompt);
-
-            var bestPrompt = new Prompt(prompt, runtimeConfiguration);
-
-            // Change: the actual responses will be in bestPrompt.responses
-            var resultCount = await GetGPTResponses(bestPrompt);
-
-            // Use voting mechanism
-            int[] votes = new int[responses.Count];
-
-            for (int i=0;i<responses.Count;i++) {
-                foreach (var r in bestPrompt.responses) {
-                    if (r.ToString().ToUpper().Contains($"PLAN {i+1}")) {
-                        responses[i].score++;
-                    }
-                }
-            }
-
-            // Get response with highest score
-            var bestResponse = responses.MaxBy(x => x.score);
-            if (bestResponse is null) {
-                throw new Exception("Couldn't get highest score");
-            }
-            var index = responses.IndexOf(bestResponse);
-            // Util.WriteToConsole($"Winner #{index+1}, score = {bestResponse.score}, r = {bestResponse.ToString()}", ConsoleColor.Red);
-
-            return bestResponse;
-        }
-
-        static async Task<int> ExpandPlanWithGPT(Plan plan) {
-
-            plan.prompt = new ExpandPrompt(basePlan, plan, runtimeConfiguration);
+            var prompt = new ExpandPrompt(plan, promptType, 
+                RuntimeConfig.settings.useGrounding, 
+                RuntimeConfig.settings.promptSubtaskCount, 
+                RuntimeConfig.settings.displayOptions.showGrounding);
 
             // Scale the temperature based on plan level
-            var levelMult = ((float)Math.Pow(runtimeConfiguration.tempMultPerLevel, plan.planLevel));
-            plan.prompt.OAIConfig.Temperature = Math.Clamp(plan.prompt.OAIConfig.Temperature * levelMult, 0, 1.0f);
+            // Experiment: Disable for now
+            //var levelMult = ((float)Math.Pow(RuntimeConfig.settings.tempMultPerLevel, plan.planLevel));
+            //prompt.OAIConfig.Temperature = Math.Clamp(prompt.OAIConfig.Temperature * levelMult, 0, 1.0f);
 
-            var gptResponseCount = await GetGPTResponses(plan.prompt);
-            return gptResponseCount;
+            // TODO: this should just return the responses
+            var gptResponseCount = await GetGPTResponses(prompt);
+
+            return prompt.responses;
         }
 
         // Return list of candidate plans
@@ -384,17 +510,26 @@ namespace NaLaPla
             completionRequest.Temperature = prompt.OAIConfig.Temperature;
             completionRequest.N = prompt.OAIConfig.NumResponses;
 
+            if (RuntimeConfig.settings.displayOptions.showPrompts) {
+                Util.WriteLineToConsole("---- PROMPT ----", ConsoleColor.DarkYellow);
+                Util.WriteLineToConsole(prompt.text, ConsoleColor.Yellow);
+            }
+
             try {
                 await GPTSemaphore.WaitAsync();
                 CompletionCreateResponse result = await api.Completions.CreateCompletion(completionRequest, "text-davinci-002");
                 if (result.Successful) {
-                    var rawPlans = result.Choices.Select(c => c.Text).ToList();
-                    foreach (var plan in rawPlans) {
-                        Response r = new Response(ResponseType.GPT3, plan.Trim());
-                        prompt.responses.Add(r);
+                    var resultStrings = result.Choices.Select(c => c.Text).ToList();
+                    foreach (var resultString in resultStrings) {
+                        prompt.responses.Add(Util.CleanListString(resultString));
+
+                        if (RuntimeConfig.settings.displayOptions.showResults) {
+                            Util.WriteLineToConsole("---- RESULT ----", ConsoleColor.DarkCyan);
+                            Util.WriteLineToConsole(resultString, ConsoleColor.Cyan);
+                        }
                     }
                     GPTRequestsTotal++;
-                    return rawPlans.Count;
+                    return resultStrings.Count;
                 } else {
                     // TODO: Handle failures in a smarter way
                     if (result.Error is not null) {

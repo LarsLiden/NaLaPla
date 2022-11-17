@@ -1,9 +1,9 @@
 namespace NaLaPla
 {
-    using System.Net;
     using System;
     using System.IO;
     using System.Text.RegularExpressions;
+    using Newtonsoft.Json;
 
     public static class Util
     {
@@ -12,6 +12,11 @@ namespace NaLaPla
         const string PLAN_FILE_EXTENSION = "plan";
 
         const string SAVE_DIRECTORY = "output";
+
+
+        public static string CleanListString(string listString) {
+            return listString.Replace("\r\n", "\n").Replace("\n\n", "\n").Trim();
+        }
 
         public static List<string> ParseSubPlanList(string itemString) {
 
@@ -67,72 +72,78 @@ namespace NaLaPla
             return Regex.Replace(bulletText, @" [a-zA-Z]\.", "-");
         }
 
-        public static string GetNumberedSteps(Plan plan) {
-
-            var steps = "";
-            for (int i = 0; i < plan.subPlanDescriptions.Count; i++) {
-                steps += $"{i+1}. {plan.subPlanDescriptions[i]}\n";
-            }
-            return steps;
-        }
-
-        public static void WriteToConsole(string text, ConsoleColor color = ConsoleColor.White) {
+        public static void WriteLineToConsole(string text, ConsoleColor color = ConsoleColor.White) {
             Console.ForegroundColor = color;
             Console.WriteLine(text);
             Console.ForegroundColor = ConsoleColor.White;
         }
 
-        public static string PlanToString(Plan plan) {
-            string planText = $"- {plan.description}{Environment.NewLine}".PadLeft(plan.description.Length + (5*plan.planLevel));
+        public static void WriteToConsole(string text, ConsoleColor color = ConsoleColor.White) {
+            Console.ForegroundColor = color;
+            Console.Write(text);
+            Console.ForegroundColor = ConsoleColor.White;
+        }
 
-            if (plan.subPlans.Any()) {
-                foreach (var subPlan in plan.subPlans) {
-                    planText += PlanToString(subPlan);
-                }
-            }
-            else {
-                foreach (var subPlanDescription in plan.subPlanDescriptions) {
-                    string output = $"- {subPlanDescription}{Environment.NewLine}".PadLeft(subPlanDescription.Length + (5*(plan.planLevel+1)));
-                    planText += $"{output}";
-                }
+        public static string IndentText(string text, int amount) {
+            return $"{text}".PadLeft(text.Length + (2*amount));
+
+        }
+
+        // Show plan step and parents ABOVE plan
+        public static string ReversePlanToString(Plan plan) {
+            string planText = IndentText($"- {plan.description}", plan.planLevel)+"\n";
+
+            if (plan.parent != null) {
+                planText = $"{ReversePlanToString(plan.parent)}{planText}";
             }
             return planText;
         }
 
+        // Returns plan description for next peer in list
+        public static string RemainingPlanToString(Plan plan) 
+        {
+            var response = "";
+            var curPlan = plan;
+            var planParent = plan.parent;
+            while (planParent != null)
+            {
+                var index = planParent.subPlans.IndexOf(curPlan)+1;
+                for (int i = index; i<planParent.subPlans.Count;i++) {
+                    response += IndentText($"- {planParent.subPlans.ElementAt(i).description}", planParent.planLevel+1)+"\n";
+                }
+                curPlan = planParent;
+                planParent = planParent.parent;
+            }
+            return response;
+        }
+
         public static string PlanToJSON(Plan plan) {
-            var json = Newtonsoft.Json.JsonConvert.SerializeObject(plan);
+            var json = JsonConvert.SerializeObject(plan);
             return json;
         }        
-
-        public static string LoadString(string planDescription) {
-            var planName = GetSaveName(planDescription, TEXT_FILE_EXTENSION);    
-            var fileName = $"{planName}.{TEXT_FILE_EXTENSION}";
-            var planString = File.ReadAllText($"{SAVE_DIRECTORY}/{fileName}");
-            return planString;
-        }
 
         public static Plan LoadPlan(string planName) {  
             var fileName = $"{planName}.{PLAN_FILE_EXTENSION}";
             var planString = File.ReadAllText($"{SAVE_DIRECTORY}/{fileName}");
-            var plan = Newtonsoft.Json.JsonConvert.DeserializeObject<Plan>(planString);
+            var plan = JsonConvert.DeserializeObject<Plan>(planString);
             if (plan is null) {
                 throw new Exception("Null plan loaded");
             }
             return plan;
         }
 
-        public static string GetPlanName(Plan basePlan) {
+        public static string GetPlanName(Plan plan) {
             
-            var planName = (basePlan.description is null) ? "--unknown--" : basePlan.description;
+            var planName = (plan.description is null) ? "--unknown--" : plan.description;
             foreach (var c in Path.GetInvalidFileNameChars()) {
                 planName.Replace(c.ToString(),"-");
             }
             return planName;
         }
 
-        private static string GetSaveName(Plan basePlan, string fileExtension) {
+        private static string GetSaveName(Plan plan, string fileExtension) {
             
-            var planName = GetPlanName(basePlan);
+            var planName = GetPlanName(plan);
             return GetSaveName(planName, fileExtension);
         }
 
@@ -150,19 +161,19 @@ namespace NaLaPla
             return planName;
         }
 
-        public static void PrintPlanToConsole(Plan plan, RuntimeConfig configuration, string runData="") {
+        public static void PrintPlanToConsole(Plan plan, string runData="") {
             var planName = GetPlanName(plan);
-            var planString = PlanToString(plan);
-            Util.WriteToConsole(planName, ConsoleColor.Green);
-            Util.WriteToConsole(configuration.ToString(), ConsoleColor.Green);
-            Util.WriteToConsole(runData, ConsoleColor.Green);
-            Util.WriteToConsole(planString, ConsoleColor.White);
+            var planString = plan.PlanToString();
+            Util.WriteLineToConsole(planName, ConsoleColor.Green);
+            Util.WriteLineToConsole(RuntimeConfig.settings.ToString(), ConsoleColor.Green);
+            Util.WriteLineToConsole(runData, ConsoleColor.Green);
+            Util.WriteLineToConsole(planString, ConsoleColor.White);
         }
 
-        public static String SavePlanAsText(Plan plan, RuntimeConfig configuration, string runData) {
+        public static String SavePlanAsText(Plan plan, string runData = "") {
             var saveName = GetSaveName(plan, TEXT_FILE_EXTENSION);
-            var planString = $"{configuration.ToString()}\n{runData}\n\n";
-            planString += PlanToString(plan);
+            var planString = $"{RuntimeConfig.settings.ToString()}\n{runData}\n\n";
+            planString += plan.PlanToString();
             SaveText(saveName, planString, TEXT_FILE_EXTENSION);
             return saveName;
         }
@@ -183,37 +194,22 @@ namespace NaLaPla
             writer.Close();
         }
 
-        static IEnumerable<T> DepthFirstTreeTraversal<T>(T root, Func<T, IEnumerable<T>> children)      
-        {
-            var stack = new Stack<T>();
-            stack.Push(root);
-            while(stack.Count != 0)
-            {
-                var current = stack.Pop();
-                // If you don't care about maintaining child order then remove the Reverse.
-                foreach(var child in children(current).Reverse())
-                    stack.Push(child);
-                yield return current;
+        public static string LoadText(string filename, string extension = TEXT_FILE_EXTENSION) {
+            var fileName = $"{SAVE_DIRECTORY}/{filename}.{extension}";
+            if (File.Exists(fileName)) {
+                var text = File.ReadAllText(fileName);
+                return text;
             }
+            return "";
         }
 
-        static List<Plan> AllChildren(Plan start)
-        {
-            return DepthFirstTreeTraversal(start, c=>c.subPlans).ToList();
+        public static void DisplayProgress(Plan? plan, SemaphoreSlim GPTSemaphore, bool detailed = false) {
+            if (plan is null) return;
+            WriteLineToConsole($"\n\nProgress ({RuntimeConfig.settings.maxConcurrentGPTRequests - GPTSemaphore.CurrentCount} GPT requests in flight):",ConsoleColor.Blue);
+            WriteLineToConsole(plan.PlanToString(showExpansionState: true), ConsoleColor.Cyan);
         }
 
-        public static void DisplayProgress(Plan? basePlan, RuntimeConfig configuration, SemaphoreSlim GPTSemaphore, bool detailed = false) {
-            if (basePlan is null) return;
-            WriteToConsole($"\n\nProgress ({configuration.maxConcurrentGPTRequests - GPTSemaphore.CurrentCount} GPT requests in flight):",ConsoleColor.Blue);
-            var all = AllChildren(basePlan);
-            foreach (var t in all) {
-                var display = $"- {t.description} ({GetDescription(t.state)}) ";
-                var status = display.PadLeft(display.Length + (5*t.planLevel));
-                WriteToConsole(status, ConsoleColor.White);
-            }
-        }
-
-        public static string GetDescription<T>(this T enumerationValue)
+        public static string EnumToDescription<T>(this T enumerationValue)
             where T : struct
         {
             Type type = enumerationValue.GetType();
@@ -265,7 +261,108 @@ namespace NaLaPla
         }
 
         static public string LimitWordCountTo(string text, int number) {
-             return text.Split(' ').Take(number).Aggregate((a, b) => a + " " + b); 
+            return text.Split(' ').Take(number).Aggregate((a, b) => a + " " + b); 
+        }
+
+        static public string GetUserInput(string userPrompt = "") {
+            if (userPrompt != "") {
+                WriteLineToConsole(userPrompt);
+            }
+            Util.WriteToConsole("> ");
+            var userInput = Console.ReadLine();
+            return userInput ?? "";
+        }
+
+        // Show task above and below where looking for expansion
+        /*
+            - build a house in MineCraft
+            - build a foundation for the house
+                - place flocks for the foundation
+                    {optionPrompt}
+                - fill in the foundation
+            - build wall for the house
+            - build a roof for the house
+            - decorate the house
+        */
+
+        static public string MakeTaskPrompt(Plan plan, string optionPrompt) {
+            if (RuntimeConfig.settings.bestTaskPrompt == BestTaskPromptType.FULL) {
+                return MakeFullTaskPrompt(plan, optionPrompt);
+            }
+            else {
+                return MakePartialTaskPrompt(plan, optionPrompt);
+            }
+        }
+
+        // Show entire task where looking for expansion
+        static public string MakeFullTaskPrompt(Plan plan, string optionPrompt) {
+
+            // If plat is root it will not a root
+            if (plan.root == null) {
+                return plan.PlanToString(null, optionPrompt);
+            }
+            return plan.root.PlanToString(plan, optionPrompt);
+        }
+
+        // Show task above and below where looking for expansion
+        static public string MakePartialTaskPrompt(Plan plan, string optionPrompt) 
+        {
+            var taskPrompt = Util.ReversePlanToString(plan);
+            taskPrompt+= Util.IndentText($"  {optionPrompt}\n", plan.planLevel + 1);
+            taskPrompt += Util.RemainingPlanToString(plan);
+            return taskPrompt;
+        }
+
+        // Convert 1-based text index into 0-based integer index
+        static public int StringToIndex(string text, int maxIndex) {
+            int index = 0;
+            if (!int.TryParse(text, out index) || index < 1 || index > maxIndex) {
+                return -1;  
+            }
+            else {
+                // text is 1-indexed, but list is 0-indexed
+                return index-1;
+            }
+        }
+
+        // Assume response is of the format:
+        /*
+        <OPTION 3> is the best option because it is the most specific and provides the most detail)
+        <OPTION 1> is the second best option because it is specific but doesn't provide as much detail as option 1)
+        <OPTION 2> is the third best option because it is too general and doesn't provide enough detail)
+        */
+        static public void ParseReasoningResponse(string text, List<TaskList> candidateSubTasks) {
+            var lines = text.Split('\n');
+            for (int i = 0; i <lines.Length; i++) {
+                var line = lines[i];
+                var optionIndex = GetOptionNumber(line, candidateSubTasks.Count);   
+
+                // Skip lines that don't have an option number
+                if (optionIndex == -1) {
+                    continue;
+                }
+                
+                var reason = line.Substring(line.IndexOf(">")+1).Trim();
+
+                var taskList = candidateSubTasks[optionIndex];
+                taskList.reason = reason;
+                taskList.ranking = i;
+            }
+        }
+
+        // Extract number (n) from option texts of the for "<OPTION n>"
+        static public int GetOptionNumber(string text, int maxIndex) {
+            var regex = new Regex(@"<OPTION (\d+)>", RegexOptions.IgnoreCase);
+            var match = regex.Match(text);
+            if (match.Success) {
+                return StringToIndex(match.Groups[1].Value, maxIndex);
+            }
+            return -1;
+        }
+
+        static public T? CopyObject <T>(T source) {
+            var serialized = JsonConvert.SerializeObject(source);
+            return JsonConvert.DeserializeObject<T>(serialized);
         }
     }
 }

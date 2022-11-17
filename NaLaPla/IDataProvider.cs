@@ -4,6 +4,6 @@ namespace NaLaPla
 
     public interface IDataProvider
     {
-        public Document GetNextDocument();
+        public Document? GetNextDocument();
     }
 }

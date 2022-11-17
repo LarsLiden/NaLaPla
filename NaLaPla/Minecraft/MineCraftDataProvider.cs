@@ -9,7 +9,7 @@ namespace NaLaPla
     class MineCraftDataProvider : IDataProvider
     {
     
-        private string MinecraftDataFolder = "";
+        private string MineCraftDataFolder = "";
 
         // Number of words to require before adding section to index
         const int MIN_REQUIRED_WORDS = 5;
@@ -17,23 +17,23 @@ namespace NaLaPla
         const string SOURCE_DIR = "GroundingData";
 
         // Stack of files to process
-        private Stack<string> _DataFiles = null;
+        private Stack<string>? _DataFiles;
 
         // Queue of document section w/in file to process
         private Queue<string> SubSections = new Queue<string>();
 
         // Current loaded file
-        private WikiRecord CurWikiRecord = null;
+        private WikiRecord? CurWikiRecord;
     
 
         private string DataPath {
             get {
-                return Path.Combine(Environment.CurrentDirectory, SOURCE_DIR, MinecraftDataFolder);
+                return Path.Combine(Environment.CurrentDirectory, SOURCE_DIR, MineCraftDataFolder);
             }
         }
 
-        public MineCraftDataProvider(string minecraftDataFolder) {
-            this.MinecraftDataFolder = minecraftDataFolder;
+        public MineCraftDataProvider(string mineCraftDataFolder) {
+            this.MineCraftDataFolder = mineCraftDataFolder;
 
             if(!System.IO.Directory.Exists(DataPath)) {
                 throw new Exception($"Directory Not Found {DataPath}");
@@ -45,10 +45,10 @@ namespace NaLaPla
             var dirNames = new Stack<string>(System.IO.Directory.GetDirectories(DataPath, "images", SearchOption.AllDirectories));
             foreach (var dirName in dirNames) {
                 System.IO.Directory.Delete(dirName, true);
-                Util.WriteToConsole($"Deleting: {dirName}", ConsoleColor.DarkGreen);
+                Util.WriteLineToConsole($"Deleting: {dirName}", ConsoleColor.DarkGreen);
 
             }
-            Util.WriteToConsole($"Deleted {dirNames.Count} directories", ConsoleColor.Green );
+            Util.WriteLineToConsole($"Deleted {dirNames.Count} directories", ConsoleColor.Green );
         }
 
         public static void UtilCopyOnlyJSONFiles(string sourceDir, string destDir) {
@@ -81,7 +81,7 @@ namespace NaLaPla
             get {
                 if (_DataFiles == null) {
                     _DataFiles = new Stack<string>(System.IO.Directory.GetFiles(DataPath, "data.json", SearchOption.AllDirectories));
-                    Util.WriteToConsole($"{_DataFiles.Count()} Documents Found", ConsoleColor.Green);
+                    Util.WriteLineToConsole($"{_DataFiles.Count()} Documents Found", ConsoleColor.Green);
                 }
                 return _DataFiles;
             }
@@ -105,7 +105,7 @@ namespace NaLaPla
                 texts.Add(CleanInnerText(node.InnerText));
             }
 
-            // Create a dictionary with count of occurances
+            // Create a dictionary with count of occurrences
             Dictionary<string, int> tagDictionary = new Dictionary<string, int>();
             foreach (var text in texts) {
                 if (tagDictionary.ContainsKey(text)) {
@@ -133,7 +133,7 @@ namespace NaLaPla
                 if (wikiRecord.metadata.hasBeenAugmented) {
                     return;
                 }
-                Util.WriteToConsole($"Augmenting Data: {wikiRecord.Title}", ConsoleColor.Gray);
+                Util.WriteLineToConsole($"Augmenting Data: {wikiRecord.Title}", ConsoleColor.Gray);
                 var web = new HtmlWeb();
                 var doc = web.Load(wikiRecord.metadata.url);
                 
@@ -151,13 +151,13 @@ namespace NaLaPla
                 writer.Close();
             }
             catch (Exception e) {
-                Util.WriteToConsole($"Augmentation error {e.ToString()}");
+                Util.WriteLineToConsole($"Augmentation error {e.ToString()}");
                 throw e;
             }
         }
 
         // Get next document section.  If all sections have been handled, move on to next file
-        private string NextDocumentSection() {
+        private string? NextDocumentSection() {
             if (SubSections.Count == 0) {
                 if (DataFiles.Count == 0) {
                     return null;
@@ -165,15 +165,17 @@ namespace NaLaPla
                 var nextFile = DataFiles.Pop();
                 var jsonString = File.ReadAllText(nextFile);
                 CurWikiRecord = Newtonsoft.Json.JsonConvert.DeserializeObject<WikiRecord>(jsonString);
-                CurWikiRecord.metadata.fileName = nextFile;
-                AugmentWithDomData(CurWikiRecord);
 
                 if (CurWikiRecord == null || CurWikiRecord.texts == null) {
                     return NextDocumentSection();    
                 }
+
+                CurWikiRecord.metadata.fileName = nextFile;
+                AugmentWithDomData(CurWikiRecord);
+
                 var subTexts = CurWikiRecord.texts.Select(t => t.text);
                 SubSections = GenerateDocumentSections(CurWikiRecord);
-                Util.WriteToConsole($"Adding: {CurWikiRecord.Title, -30} with {SubSections.Count, -10} items ({DataFiles.Count()} remaining)", ConsoleColor.DarkGreen);
+                Util.WriteLineToConsole($"Adding: {CurWikiRecord.Title, -30} with {SubSections.Count, -10} items ({DataFiles.Count()} remaining)", ConsoleColor.DarkGreen);
                 return NextDocumentSection();
             } 
             var nextDocument = SubSections.Dequeue();    
@@ -208,7 +210,7 @@ namespace NaLaPla
             return 4;
         }
 
-        private String GetBodyText(List<Text> textItems) {
+        private String? GetBodyText(List<Text> textItems) {
 
             // Filter out contents box
             if (textItems[1] != null && textItems[1].text == "Contents") {
@@ -233,7 +235,7 @@ namespace NaLaPla
             var lastTagLevel = textItems.Any() ? TagLevel(textItems.Last()) : 0;
 
             // If no next item
-            if (!inputQueue.TryDequeue(out Text curText)) {
+            if (!inputQueue.TryDequeue(out Text? curText)) {
                 // Add to output if more than just headers
                 if (lastTagLevel > 3) {
                     var bodyText = GetBodyText(textItems);
@@ -284,17 +286,17 @@ namespace NaLaPla
 
             // Add table sections
             var tableQueue = new Queue<Table>(wikiRecord.tables);
-            while (tableQueue.TryDequeue(out Table nextTable)) {
+            while (tableQueue.TryDequeue(out Table? nextTable)) {
                 ProcessTable(nextTable, outputQueue); 
             }             
 
             return outputQueue;
         }
 
-        public Document GetNextDocument() {
+        public Document? GetNextDocument() {
             
             var documentBody = NextDocumentSection();
-            if (documentBody == null) {
+            if (documentBody == null || CurWikiRecord == null) {
                 return null;
             }                
             var doc = new Document
