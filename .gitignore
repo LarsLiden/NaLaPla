@@ -6,3 +6,4 @@ output/
 index/
 GroundingData/
 *.zip
+NaLaPla/cache/PlanCache.json

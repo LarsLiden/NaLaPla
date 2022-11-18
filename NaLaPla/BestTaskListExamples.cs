@@ -151,7 +151,7 @@ namespace NaLaPla
         }
 
         private static List<SamplePlan> LoadSamplePlans() {
-            var samplesString = Util.LoadText(SAMPLE_FILENAME, "json");
+            var samplesString = Util.LoadText("", SAMPLE_FILENAME, Util.JSON_FILE_EXTENSION);
             if (samplesString == null || String.IsNullOrEmpty(samplesString)) {
                 return new List<SamplePlan>();
             }   
@@ -164,7 +164,7 @@ namespace NaLaPla
 
         private static void SaveSamplePlans() {
             var json = JsonConvert.SerializeObject(_samplePlans);
-            Util.SaveText(SAMPLE_FILENAME, json, "json");
+            Util.SaveText("", SAMPLE_FILENAME, Util.JSON_FILE_EXTENSION, json);
         }
     }
 }

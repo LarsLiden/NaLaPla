@@ -9,12 +9,12 @@ namespace NaLaPla
         AS_A_LIST    
     }
 
-       public enum BestResponseChooserType
+    public enum BestResponseChooserType
     {
         // User picks best response when GPT provides multiple possibilities
         USER,
 
-        // GPT automaticaly picks best response when GPT provides multiple possibilities
+        // GPT automatically picks best response when GPT provides multiple possibilities
         GPT    
     }
 
@@ -27,7 +27,7 @@ namespace NaLaPla
         public int maxConcurrentGPTRequests = 1;
 
         // Should grounding be added to prompts
-        public bool useGrounding = false;
+        public bool useGrounding = true;
 
         // Should plans cached on disk be used
         public bool useCachedPlans = false;

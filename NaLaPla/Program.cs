@@ -130,7 +130,7 @@
                 var saveFilename = Path.Combine(dir, newFilename + ext);
 
                 // IDEA: Can we convert post-processed plan back into plan object?
-                Util.SaveText(saveFilename, postPrompt.responses[i].ToString());
+                Util.SaveText(Util.OUTPUT_DIRECTORY, saveFilename, Util.TEXT_FILE_EXTENSION, postPrompt.responses[i].ToString());
             }
         }
         
@@ -196,7 +196,9 @@
                 return;
             }
 
-            Util.DisplayProgress(plan.root, GPTSemaphore);
+            if (RuntimeConfig.settings.displayOptions.showProgress) {
+                Util.DisplayProgress(plan.root, GPTSemaphore);
+            }
 
             // Always have to expand one by one if no sub-plans
             if (plan.subPlans.Count() == 0 ) {
