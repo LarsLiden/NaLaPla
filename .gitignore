@@ -7,3 +7,4 @@ index/
 GroundingData/
 *.zip
 NaLaPla/cache/PlanCache.json
+NaLaPla/Settings.json
