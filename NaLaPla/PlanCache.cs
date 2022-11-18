@@ -8,6 +8,8 @@ namespace NaLaPla
 
         private const string CACHE_FILENAME = "PlanCache";
 
+        private const string CACHE_DIRECTORY = "cache";
+
         private static List<CachedPlan>? _cachedPlans;
 
         private static List<CachedPlan> cachedPlans {
@@ -58,11 +60,11 @@ namespace NaLaPla
         }
 
         private static List<CachedPlan> LoadCache() {
-            var cacheString = Util.LoadText(CACHE_FILENAME);
-            if (String.IsNullOrEmpty(cacheString)) {
+            var cacheJson = Util.LoadText(CACHE_DIRECTORY, CACHE_FILENAME, Util.JSON_FILE_EXTENSION);
+            if (String.IsNullOrEmpty(cacheJson)) {
                 return new List<CachedPlan>();
             }   
-            var cacheList = Newtonsoft.Json.JsonConvert.DeserializeObject<List<CachedPlan>>(cacheString);
+            var cacheList = Newtonsoft.Json.JsonConvert.DeserializeObject<List<CachedPlan>>(cacheJson);
             if (cacheList == null) {
                 return new List<CachedPlan>();
             }
@@ -71,7 +73,7 @@ namespace NaLaPla
 
         private static void SaveCache() {
             var json = Newtonsoft.Json.JsonConvert.SerializeObject(_cachedPlans);
-            Util.SaveText(CACHE_FILENAME, json);
+            Util.SaveText(CACHE_DIRECTORY, CACHE_FILENAME, Util.JSON_FILE_EXTENSION, json);
         }
     }
 

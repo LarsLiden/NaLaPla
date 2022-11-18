@@ -1,0 +1,250 @@
+[
+    {
+        "plan": {
+            "description": "Find a suitable location for the house",
+            "planLevel": 1,
+            "subPlans": [],
+            "state": 1,
+            "candidateSubTasks": [
+                {
+                    "taskDescriptions": [],
+                    "fromCache": false,
+                    "doNotExpand": true,
+                    "bestCount": 0,
+                    "ranking": 3,
+                    "reason": "is bad because the list is empty and the task needs to be expanded"
+                },
+                {
+                    "taskDescriptions": [
+                        "open minecraft",
+                        "create a new world",
+                        "explore the world to find a suitable location"
+                    ],
+                    "fromCache": false,
+                    "doNotExpand": false,
+                    "bestCount": 0,
+                    "ranking": 2,
+                    "reason": "is bad because it doesn't list what is required for a suitable location"
+                },
+                {
+                    "taskDescriptions": [
+                        "open up the map",
+                        "find an area with few trees"
+                    ],
+                    "fromCache": false,
+                    "doNotExpand": false,
+                    "bestCount": 0,
+                    "ranking": 1,
+                    "reason": "is good because it lists that the area should have few trees but bad because it doesn't list that it should be flat"
+                },
+                {
+                    "taskDescriptions": [
+                        "find a flat area of land",
+                        "make sure the area is big enough for the house"
+                    ],
+                    "fromCache": true,
+                    "doNotExpand": false,
+                    "bestCount": 1,
+                    "ranking": 0,
+                    "reason": "is good because it correctly lists that a suitable location requires finding a flat area this is large enough for a house"
+                }
+            ]
+        },
+        "partialPlanPrompt": "- build a house in minecraft\n  - Find a suitable location for the house\n      <WHICH OPTION IS BEST HERE>\n  - Clear an area of land for the house\n  - Build a foundation for the house\n  - Build walls for the house\n  - Build a roof for the house\n  - Decorate the inside of the house\n"
+    },
+    {
+        "plan": {
+            "description": "find a flat area of land",
+            "planLevel": 2,
+            "subPlans": [],
+            "state": 5,
+            "candidateSubTasks": [
+                {
+                    "taskDescriptions": [],
+                    "fromCache": false,
+                    "doNotExpand": true,
+                    "bestCount": 0,
+                    "ranking": 0,
+                    "reason": "is good because it states that no additional steps are needed "
+                },
+                {
+                    "taskDescriptions": [
+                        "open up the world map",
+                        "find an area that is flat"
+                    ],
+                    "fromCache": false,
+                    "doNotExpand": false,
+                    "bestCount": 0,
+                    "ranking": 1,
+                    "reason": "is bad because it incorrectly  repeats the previous step of finding an area that is flat"
+                }
+            ]
+        },
+        "partialPlanPrompt": "- build a house in minecraft\n  - Find a suitable location for the house\n    - find a flat area of land\n        <WHICH OPTION IS BEST HERE>\n    - make sure the area is big enough for the house\n  - Clear an area of land for the house\n  - Build a foundation for the house\n  - Build walls for the house\n  - Build a roof for the house\n  - Decorate the inside of the house\n"
+    },
+    {
+        "plan": {
+            "description": "the agent should decide on the number of rooms in the house",
+            "planLevel": 2,
+            "subPlans": [],
+            "state": 0,
+            "candidateSubTasks": [
+                {
+                    "taskDescriptions": [],
+                    "fromCache": false,
+                    "doNotExpand": true,
+                    "bestCount": 0,
+                    "ranking": 0,
+                    "reason": "is good because it identifies that no addional steps are needed"
+                },
+                {
+                    "taskDescriptions": [
+                        "the agent should input the number of rooms in the house"
+                    ],
+                    "fromCache": false,
+                    "doNotExpand": false,
+                    "bestCount": 0,
+                    "ranking": 1,
+                    "reason": "is bad as it repeats the action given in the previous step"
+                }
+            ]
+        },
+        "partialPlanPrompt": "- build a house in vr\n  - The agent should first create a blueprint of the house\n    - the agent should decide on the number of rooms in the house\n        <WHICH OPTION IS BEST HERE>\n    - the agent should decide on the layout of the rooms in the house\n  - The agent should then create a three-dimensional model of the house based on the blueprint\n  - The agent should add furniture and other objects to the house\n  - The agent should add lighting to the house\n  - The agent should add textures and other visual effects to the house\n"
+    },
+    {
+        "plan": {
+            "description": "The agent should then create a three-dimensional model of the house based on the blueprint",
+            "planLevel": 1,
+            "subPlans": [],
+            "state": 0,
+            "candidateSubTasks": [
+                {
+                    "taskDescriptions": [],
+                    "fromCache": false,
+                    "doNotExpand": true,
+                    "bestCount": 0,
+                    "ranking": 1,
+                    "reason": "is bad because doesn't provide any steps needed to create a 3d model"
+                },
+                {
+                    "taskDescriptions": [
+                        "the agent should create the walls of the house",
+                        "the agent should create the roof of the house",
+                        "the agent should create the windows and doors of the house"
+                    ],
+                    "fromCache": false,
+                    "doNotExpand": false,
+                    "bestCount": 0,
+                    "ranking": 0,
+                    "reason": "is good because it lists the components that needed to create the 3d model"
+                }
+            ]
+        },
+        "partialPlanPrompt": "- build a house in vr\n  - The agent should then create a three-dimensional model of the house based on the blueprint\n      <WHICH OPTION IS BEST HERE>\n  - The agent should add furniture and other objects to the house\n  - The agent should add lighting to the house\n  - The agent should add textures and other visual effects to the house\n"
+    },
+    {
+        "plan": {
+            "description": "the agent should create the windows and doors of the house",
+            "planLevel": 2,
+            "subPlans": [],
+            "state": 0,
+            "candidateSubTasks": [
+                {
+                    "taskDescriptions": [],
+                    "fromCache": false,
+                    "doNotExpand": true,
+                    "bestCount": 0,
+                    "ranking": 3,
+                    "reason": "is bad because doesn't list steps needed for creating doors and windows"
+                },
+                {
+                    "taskDescriptions": [
+                        "the agent should create windows",
+                        "the agent should create doors",
+                        "the agent should position the windows and doors correctly"
+                    ],
+                    "fromCache": false,
+                    "doNotExpand": false,
+                    "bestCount": 0,
+                    "ranking": 2,
+                    "reason": "is bad as it doesn't specify the number of windows and doors nor where to place them"
+                },
+                {
+                    "taskDescriptions": [
+                        "the agent should create windows on two of the walls",
+                        "the agent should create a door on one of the walls"
+                    ],
+                    "fromCache": false,
+                    "doNotExpand": false,
+                    "bestCount": 0,
+                    "ranking": 0,
+                    "reason": "is good as it specifies how many and where to put the windows and doors"
+                },
+                {
+                    "taskDescriptions": [
+                        "the agent should create two windows",
+                        "the agent should create two doors"
+                    ],
+                    "fromCache": false,
+                    "doNotExpand": false,
+                    "bestCount": 0,
+                    "ranking": 1,
+                    "reason": "is good at it specifies how many doors and windows but bad as it doeesn't specify where to put them"
+                }
+            ]
+        },
+        "partialPlanPrompt": "- build a house in vr\n  - The agent should then create a three-dimensional model of the house based on the blueprint\n    - the agent should create the windows and doors of the house\n        <WHICH OPTION IS BEST HERE>\n  - The agent should add furniture and other objects to the house\n  - The agent should add lighting to the house\n  - The agent should add textures and other visual effects to the house\n"
+    },
+    {
+        "plan": {
+            "description": "Clear the area of any trees or other obstacles",
+            "planLevel": 1,
+            "subPlans": [],
+            "state": 0,
+            "candidateSubTasks": [
+                {
+                    "taskDescriptions": [],
+                    "fromCache": false,
+                    "doNotExpand": true,
+                    "bestCount": 0,
+                    "ranking": 3,
+                    "reason": "is bad because doesn't provide any steps needed to clear the area of tree or obstacles"
+                },
+                {
+                    "taskDescriptions": [
+                        "use a tool to destroy the trees",
+                        "use a tool to destroy the other obstacles"
+                    ],
+                    "fromCache": false,
+                    "doNotExpand": false,
+                    "bestCount": 0,
+                    "ranking": 1,
+                    "reason": "is good as it lists steps for detroying the trees and other obstacles with a tool, but if fails to specify which tool to use"
+                },
+                {
+                    "taskDescriptions": [
+                        "break the trees",
+                        "clear the area"
+                    ],
+                    "fromCache": false,
+                    "doNotExpand": false,
+                    "bestCount": 0,
+                    "ranking": 2,
+                    "reason": "is bad as it doesn't specify how to break the trees or clear the area"
+                },
+                {
+                    "taskDescriptions": [
+                        "use an axe to chop down trees",
+                        "use a shovel to dig up dirt"
+                    ],
+                    "fromCache": false,
+                    "doNotExpand": false,
+                    "bestCount": 0,
+                    "ranking": 0,
+                    "reason": "is good as it specifies the tools to use to destroy the trees and other obstacles"
+                }
+            ]
+        },
+        "partialPlanPrompt": "- build a house in minecraft\n  - Clear the area of any trees or other obstacles\n      <WHICH OPTION IS BEST HERE>\n  - Dig a foundation for the house\n  - Build walls for the house\n  - Add a roof to the house\n  - Add doors and windows to the house\n  - Decorate the inside of the house\n"
+    }
+]

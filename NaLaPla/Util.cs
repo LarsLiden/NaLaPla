@@ -7,12 +7,13 @@ namespace NaLaPla
 
     public static class Util
     {
-        const string TEXT_FILE_EXTENSION = "txt";
+        public const string TEXT_FILE_EXTENSION = "txt";
+
+        public const string JSON_FILE_EXTENSION = "json";
 
         const string PLAN_FILE_EXTENSION = "plan";
 
-        const string SAVE_DIRECTORY = "output";
-
+        public const string OUTPUT_DIRECTORY = "output";
 
         public static string CleanListString(string listString) {
             return listString.Replace("\r\n", "\n").Replace("\n\n", "\n").Trim();
@@ -124,7 +125,7 @@ namespace NaLaPla
 
         public static Plan LoadPlan(string planName) {  
             var fileName = $"{planName}.{PLAN_FILE_EXTENSION}";
-            var planString = File.ReadAllText($"{SAVE_DIRECTORY}/{fileName}");
+            var planString = File.ReadAllText($"{OUTPUT_DIRECTORY}/{fileName}");
             var plan = JsonConvert.DeserializeObject<Plan>(planString);
             if (plan is null) {
                 throw new Exception("Null plan loaded");
@@ -154,7 +155,7 @@ namespace NaLaPla
             if (planName is null) {
                 planName = "--unknown--";
             }
-            while (File.Exists(myFile = $"{SAVE_DIRECTORY}/{planName}{version}.{fileExtension}")) {
+            while (File.Exists(myFile = $"{OUTPUT_DIRECTORY}/{planName}{version}.{fileExtension}")) {
                 version = (version == "") ? version = "2" : version = (Int32.Parse(version) + 1).ToString();
             }
             planName += version;
@@ -174,30 +175,31 @@ namespace NaLaPla
             var saveName = GetSaveName(plan, TEXT_FILE_EXTENSION);
             var planString = $"{RuntimeConfig.settings.ToString()}\n{runData}\n\n";
             planString += plan.PlanToString();
-            SaveText(saveName, planString, TEXT_FILE_EXTENSION);
+            SaveText(OUTPUT_DIRECTORY, saveName, TEXT_FILE_EXTENSION, planString);
             return saveName;
         }
 
         public static void SavePlanAsJSON(Plan plan) {
             var saveName = GetSaveName(plan, PLAN_FILE_EXTENSION);
             var planString = PlanToJSON(plan);
-            SaveText(saveName, planString, PLAN_FILE_EXTENSION);
+            SaveText(OUTPUT_DIRECTORY, saveName, PLAN_FILE_EXTENSION, planString);
         }
 
-        public static void SaveText(string fileName, string text, string extension = TEXT_FILE_EXTENSION) {
-            bool exists = System.IO.Directory.Exists(SAVE_DIRECTORY);
+        public static void SaveText(string saveDirectory, string fileName, string extension, string text) {
+            bool exists = System.IO.Directory.Exists(saveDirectory);
             if(!exists) {
-                System.IO.Directory.CreateDirectory(SAVE_DIRECTORY);
+                System.IO.Directory.CreateDirectory(saveDirectory);
             }
-            var writer = new StreamWriter($"{SAVE_DIRECTORY}/{fileName}.{extension}");
+            var writer = new StreamWriter($"{saveDirectory}/{fileName}.{extension}");
             writer.Write(text);
             writer.Close();
         }
 
-        public static string LoadText(string filename, string extension = TEXT_FILE_EXTENSION) {
-            var fileName = $"{SAVE_DIRECTORY}/{filename}.{extension}";
-            if (File.Exists(fileName)) {
-                var text = File.ReadAllText(fileName);
+        public static string LoadText(string saveDirectory, string fileName, string extension) {
+            var saveDir = saveDirectory == "" ? "" : $"{saveDirectory}/";
+            var path = $"{saveDir}{fileName}.{extension}";
+            if (File.Exists(path)) {
+                var text = File.ReadAllText(path);
                 return text;
             }
             return "";
