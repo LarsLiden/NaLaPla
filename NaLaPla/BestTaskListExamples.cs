@@ -83,7 +83,7 @@ namespace NaLaPla
             prompt += "<PLAN>\n";
             // Sample plans cache the plan prompts as they don't store the full plan
             if (samplePlan != null) {
-                if (RuntimeConfig.settings.bestTaskPrompt == BestTaskPromptType.PARTIAL) {
+                if (RuntimeConfig.settings.promptBestTask == BestTaskPromptType.PARTIAL) {
                     prompt += samplePlan.partialPlanPrompt;
                 }
                 else {

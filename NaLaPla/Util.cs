@@ -166,7 +166,7 @@ namespace NaLaPla
             var planName = GetPlanName(plan);
             var planString = plan.PlanToString();
             Util.WriteLineToConsole(planName, ConsoleColor.Green);
-            Util.WriteLineToConsole(RuntimeConfig.settings.ToString(), ConsoleColor.Green);
+            RuntimeConfig.settings.ShowSettings();
             Util.WriteLineToConsole(runData, ConsoleColor.Green);
             Util.WriteLineToConsole(planString, ConsoleColor.White);
         }
@@ -185,19 +185,20 @@ namespace NaLaPla
             SaveText(OUTPUT_DIRECTORY, saveName, PLAN_FILE_EXTENSION, planString);
         }
 
-        public static void SaveText(string saveDirectory, string fileName, string extension, string text) {
-            bool exists = System.IO.Directory.Exists(saveDirectory);
-            if(!exists) {
-                System.IO.Directory.CreateDirectory(saveDirectory);
+        public static void SaveText(string directory, string fileName, string extension, string text) {
+            bool exists = System.IO.Directory.Exists(directory);
+            if(!exists && directory != "") {
+                System.IO.Directory.CreateDirectory(directory);
             }
-            var writer = new StreamWriter($"{saveDirectory}/{fileName}.{extension}");
+            var dir = directory == "" ? "" : $"{directory}/";
+            var writer = new StreamWriter($"{dir}{fileName}.{extension}");
             writer.Write(text);
             writer.Close();
         }
 
-        public static string LoadText(string saveDirectory, string fileName, string extension) {
-            var saveDir = saveDirectory == "" ? "" : $"{saveDirectory}/";
-            var path = $"{saveDir}{fileName}.{extension}";
+        public static string LoadText(string directory, string fileName, string extension) {
+            var dir = directory == "" ? "" : $"{directory}/";
+            var path = $"{dir}{fileName}.{extension}";
             if (File.Exists(path)) {
                 var text = File.ReadAllText(path);
                 return text;
@@ -207,7 +208,7 @@ namespace NaLaPla
 
         public static void DisplayProgress(Plan? plan, SemaphoreSlim GPTSemaphore, bool detailed = false) {
             if (plan is null) return;
-            WriteLineToConsole($"\n\nProgress ({RuntimeConfig.settings.maxConcurrentGPTRequests - GPTSemaphore.CurrentCount} GPT requests in flight):",ConsoleColor.Blue);
+            WriteLineToConsole($"\n\nProgress ({RuntimeConfig.settings.gptMaxConcurrentRequests - GPTSemaphore.CurrentCount} GPT requests in flight):",ConsoleColor.Blue);
             WriteLineToConsole(plan.PlanToString(showExpansionState: true), ConsoleColor.Cyan);
         }
 
@@ -288,7 +289,7 @@ namespace NaLaPla
         */
 
         static public string MakeTaskPrompt(Plan plan, string optionPrompt) {
-            if (RuntimeConfig.settings.bestTaskPrompt == BestTaskPromptType.FULL) {
+            if (RuntimeConfig.settings.promptBestTask == BestTaskPromptType.FULL) {
                 return MakeFullTaskPrompt(plan, optionPrompt);
             }
             else {
