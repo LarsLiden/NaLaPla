@@ -50,7 +50,8 @@
                 }
             ]
         },
-        "partialPlanPrompt": "- build a house in minecraft\n  - Find a suitable location for the house\n      <WHICH OPTION IS BEST HERE>\n  - Clear an area of land for the house\n  - Build a foundation for the house\n  - Build walls for the house\n  - Build a roof for the house\n  - Decorate the inside of the house\n"
+        "partialPlanPrompt": "- build a house in MineCraft\n  - Find a suitable location for the house\n      <WHICH OPTION IS BEST HERE>\n  - Clear an area of land for the house\n  - Build a foundation for the house\n  - Build walls for the house\n  - Build a roof for the house\n  - Decorate the inside of the house\n",
+        "fullPlanPrompt": "  - Find a suitable location for the house \n"
     },
     {
         "plan": {
@@ -76,11 +77,12 @@
                     "doNotExpand": false,
                     "bestCount": 0,
                     "ranking": 1,
-                    "reason": "is bad because it incorrectly  repeats the previous step of finding an area that is flat"
+                    "reason": "is bad because it incorrectly repeats the previous step of finding an area that is flat"
                 }
             ]
         },
-        "partialPlanPrompt": "- build a house in minecraft\n  - Find a suitable location for the house\n    - find a flat area of land\n        <WHICH OPTION IS BEST HERE>\n    - make sure the area is big enough for the house\n  - Clear an area of land for the house\n  - Build a foundation for the house\n  - Build walls for the house\n  - Build a roof for the house\n  - Decorate the inside of the house\n"
+        "partialPlanPrompt": "- build a house in minecraft\n  - Find a suitable location for the house\n    - find a flat area of land\n        <WHICH OPTION IS BEST HERE>\n    - make sure the area is big enough for the house\n  - Clear an area of land for the house\n  - Build a foundation for the house\n  - Build walls for the house\n  - Build a roof for the house\n  - Decorate the inside of the house\n",
+        "fullPlanPrompt": "    - find a flat area of land \n"
     },
     {
         "plan": {
@@ -95,7 +97,7 @@
                     "doNotExpand": true,
                     "bestCount": 0,
                     "ranking": 0,
-                    "reason": "is good because it identifies that no addional steps are needed"
+                    "reason": "is good because it identifies that no additional steps are needed"
                 },
                 {
                     "taskDescriptions": [
@@ -109,7 +111,8 @@
                 }
             ]
         },
-        "partialPlanPrompt": "- build a house in vr\n  - The agent should first create a blueprint of the house\n    - the agent should decide on the number of rooms in the house\n        <WHICH OPTION IS BEST HERE>\n    - the agent should decide on the layout of the rooms in the house\n  - The agent should then create a three-dimensional model of the house based on the blueprint\n  - The agent should add furniture and other objects to the house\n  - The agent should add lighting to the house\n  - The agent should add textures and other visual effects to the house\n"
+        "partialPlanPrompt": "- build a house in vr\n  - The agent should first create a blueprint of the house\n    - the agent should decide on the number of rooms in the house\n        <WHICH OPTION IS BEST HERE>\n    - the agent should decide on the layout of the rooms in the house\n  - The agent should then create a three-dimensional model of the house based on the blueprint\n  - The agent should add furniture and other objects to the house\n  - The agent should add lighting to the house\n  - The agent should add textures and other visual effects to the house\n",
+        "fullPlanPrompt": "    - the agent should decide on the number of rooms in the house \n"
     },
     {
         "plan": {
@@ -140,7 +143,8 @@
                 }
             ]
         },
-        "partialPlanPrompt": "- build a house in vr\n  - The agent should then create a three-dimensional model of the house based on the blueprint\n      <WHICH OPTION IS BEST HERE>\n  - The agent should add furniture and other objects to the house\n  - The agent should add lighting to the house\n  - The agent should add textures and other visual effects to the house\n"
+        "partialPlanPrompt": "- build a house in vr\n  - The agent should then create a three-dimensional model of the house based on the blueprint\n      <WHICH OPTION IS BEST HERE>\n  - The agent should add furniture and other objects to the house\n  - The agent should add lighting to the house\n  - The agent should add textures and other visual effects to the house\n",
+        "fullPlanPrompt": "  - The agent should then create a three-dimensional model of the house based on the blueprint \n"
     },
     {
         "plan": {
@@ -189,11 +193,12 @@
                     "doNotExpand": false,
                     "bestCount": 0,
                     "ranking": 1,
-                    "reason": "is good at it specifies how many doors and windows but bad as it doeesn't specify where to put them"
+                    "reason": "is good at it specifies how many doors and windows but bad as it doesn't specify where to put them"
                 }
             ]
         },
-        "partialPlanPrompt": "- build a house in vr\n  - The agent should then create a three-dimensional model of the house based on the blueprint\n    - the agent should create the windows and doors of the house\n        <WHICH OPTION IS BEST HERE>\n  - The agent should add furniture and other objects to the house\n  - The agent should add lighting to the house\n  - The agent should add textures and other visual effects to the house\n"
+        "partialPlanPrompt": "- build a house in vr\n  - The agent should then create a three-dimensional model of the house based on the blueprint\n    - the agent should create the windows and doors of the house\n        <WHICH OPTION IS BEST HERE>\n  - The agent should add furniture and other objects to the house\n  - The agent should add lighting to the house\n  - The agent should add textures and other visual effects to the house\n",
+        "fullPlanPrompt": "    - the agent should create the windows and doors of the house \n"
     },
     {
         "plan": {
@@ -219,7 +224,7 @@
                     "doNotExpand": false,
                     "bestCount": 0,
                     "ranking": 1,
-                    "reason": "is good as it lists steps for detroying the trees and other obstacles with a tool, but if fails to specify which tool to use"
+                    "reason": "is good as it lists steps for destroying the trees and other obstacles with a tool, but if fails to specify which tool to use"
                 },
                 {
                     "taskDescriptions": [
@@ -245,6 +250,50 @@
                 }
             ]
         },
-        "partialPlanPrompt": "- build a house in minecraft\n  - Clear the area of any trees or other obstacles\n      <WHICH OPTION IS BEST HERE>\n  - Dig a foundation for the house\n  - Build walls for the house\n  - Add a roof to the house\n  - Add doors and windows to the house\n  - Decorate the inside of the house\n"
+        "partialPlanPrompt": "- build a house in minecraft\n  - Clear the area of any trees or other obstacles\n      <WHICH OPTION IS BEST HERE>\n  - Dig a foundation for the house\n  - Build walls for the house\n  - Add a roof to the house\n  - Add doors and windows to the house\n  - Decorate the inside of the house\n",
+        "fullPlanPrompt": "  - Clear the area of any trees or other obstacles \n"
+    },
+    {
+        "plan": {
+            "description": "Gather the necessary materials for building the house, such as wood, stone, and cobblestone",
+            "planLevel": 1,
+            "subPlans": [],
+            "state": 0,
+            "candidateSubTasks": [
+                {
+                    "taskDescriptions": [],
+                    "fromCache": false,
+                    "doNotExpand": true,
+                    "bestCount": 0,
+                    "ranking": 1,
+                    "reason": "is bad because it doesn't provide any steps needed to gather the necessary materials"
+                },
+                {
+                    "taskDescriptions": [
+                        "collect wood from trees",
+                        "mine stone and cobblestone from underground"
+                    ],
+                    "fromCache": false,
+                    "doNotExpand": false,
+                    "bestCount": 0,
+                    "ranking": 0,
+                    "reason": "is good as it describes how to gather the necessary materials"
+                },
+                {
+                    "taskDescriptions": [
+                        "locate a supplier of the necessary materials",
+                        "purchase the materials from the supplier",
+                        "transport the materials to the building site"
+                    ],
+                    "fromCache": false,
+                    "doNotExpand": false,
+                    "bestCount": 0,
+                    "ranking": 2,
+                    "reason": "is bad because the steps doesn't make sense in the context of Minecraft"
+                }
+            ]
+        },
+        "partialPlanPrompt": "- build a house in minecraft\n  - Gather the necessary materials for building the house, such as wood, stone, and cobblestone\n      <WHICH OPTION IS BEST HERE>\n  - Choose a suitable location for the house\n  - Dig a foundation for the house\n  - Build the walls of the house using the materials gathered\n  - Construct the roof of the house\n  - Place windows and doors in the house\n  - Decorate the interior of the house with furniture, decorations, and other items\n",
+        "fullPlanPrompt": "- build a house in minecraft \n      <WHICH OPTION IS BEST HERE>\n  - Choose a suitable location for the house \n  - Dig a foundation for the house \n  - Build the walls of the house using the materials gathered \n  - Construct the roof of the house \n  - Place windows and doors in the house \n  - Decorate the interior of the house with furniture, decorations, and other items \n"
     }
 ]

@@ -64,10 +64,10 @@ namespace NaLaPla
         public int gptMaxConcurrentRequests { get; set;} = 1;
 
         [Description("Default Temperature for GPT")]
-        public float gptTemperature { get; set;} = 0.1f;
+        public float gptTemperature { get; set;} = 0.2f;
 
-        [Description("If less than one, decay temperature by this fraction each time a plan is expanded")]
-        public float gptTemperatureDecay { get; set;} = 1.0f;
+        [Description("Version of GPT to use")]
+        public string gptVersion { get; set;} = "text-davinci-003";
 
         [Description("When prompting for the best task.  PARTIAL: Use partial plan, FULL: Use full plan")]
         public BestTaskPromptType promptBestTask { get; set;} = BestTaskPromptType.PARTIAL;

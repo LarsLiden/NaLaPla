@@ -39,7 +39,7 @@
                 var prompt = $"{postPromptToUse}{Environment.NewLine}START LIST{Environment.NewLine}{planString}{Environment.NewLine}END LIST";
 
                 // Expand Max Tokens to cover size of plan
-                var openAIConfig = new OpenAIConfig(maxTokens: 2000, OpenAIConfig.DefaultNumResponses, OpenAIConfig.DefaultTemperature);
+                var openAIConfig = new OpenAIConfig(maxTokens: 2000, OpenAIConfig.DefaultNumResponses, RuntimeConfig.settings.gptTemperature);
                 var postPrompt = new Prompt(prompt, openAIConfig);
 
                 var gptResponse = await GetGPTResponses(postPrompt);
@@ -338,9 +338,12 @@
 
                     if (subPlanDescriptions.Count >= 0) {
                         // Find the subplan
-                        var subPlan = plan.subPlans.FirstOrDefault(p => p.description == planDescription);
+                        var subPlan = plan.subPlans.FirstOrDefault(p => p.description.ToLower() == planDescription.ToLower());
                         if (subPlan != null) {
                             subPlan.candidateSubTasks.Add(new TaskList(subPlanDescriptions));
+                        }
+                        else {
+                            Util.WriteLineToConsole($"Could not find sub-plan: {planDescription}", ConsoleColor.Red);
                         }
                     }
                 }
@@ -395,7 +398,7 @@
             try {
                 await GPTSemaphore.WaitAsync();
                 Util.WriteLineToConsole("Sending request to GPT...", ConsoleColor.DarkGray);
-                CompletionCreateResponse result = await api.Completions.CreateCompletion(completionRequest, "text-davinci-002");
+                CompletionCreateResponse result = await api.Completions.CreateCompletion(completionRequest, RuntimeConfig.settings.gptVersion);
                 if (result.Successful) {
                     var resultStrings = result.Choices.Select(c => c.Text).ToList();
                     foreach (var resultString in resultStrings) {
